@@ -54,10 +54,10 @@ def get_kline():
         r['trade_date'] = str(r['trade_date'])
     return jsonify(records)
 
-# ===== 新增：涨停股票识别 =====
+# ===== 修改：涨停股票识别（排除当天） =====
 @app.route('/api/limit_up_stocks')
 def get_limit_up_stocks():
-    """获取最近12个交易日内有涨停的股票列表"""
+    """获取最近12个交易日内有涨停的股票列表（排除今天涨停）"""
     db = get_db()
     
     # 1. 获取最近12个交易日的日期
@@ -75,8 +75,7 @@ def get_limit_up_stocks():
     date_list = dates_df['trade_date'].tolist()
     date_str = "', '".join([str(d) for d in date_list])
     
-    # 2. 查询这些日期中涨跌幅 >= 9.8 的股票（涨停）
-    # 返回每个股票最近一次涨停日期和价格
+    # 2. 查询这些日期中涨跌幅 >= 9.8 的股票（涨停），并排除今天
     sql = f"""
         WITH limit_up AS (
             SELECT 
@@ -88,6 +87,7 @@ def get_limit_up_stocks():
             FROM daily_quotes
             WHERE trade_date IN ('{date_str}')
               AND pct_chg >= 9.8
+              AND trade_date != CURRENT_DATE   -- ✅ 排除今天涨停
         )
         SELECT 
             lu.thscode,
@@ -107,7 +107,6 @@ def get_limit_up_stocks():
         return jsonify({'stocks': [], 'dates': date_list})
     
     records = df.to_dict(orient='records')
-    # 日期转为字符串
     for r in records:
         r['trade_date'] = str(r['trade_date'])
     
@@ -135,13 +134,14 @@ def get_kline_with_marker():
         db.close()
         return jsonify({'error': '无数据'}), 404
     
-    # 获取涨停标记（最近12天内）
+    # 获取涨停标记（最近12天内，排除今天）
     marker_sql = """
         SELECT trade_date, close_price, pct_chg
         FROM daily_quotes
         WHERE thscode = ?
           AND pct_chg >= 9.8
           AND trade_date >= (SELECT MAX(trade_date) - INTERVAL 12 DAY FROM daily_quotes)
+          AND trade_date != CURRENT_DATE   -- ✅ 排除今天
         ORDER BY trade_date
     """
     markers_df = db.execute(marker_sql, [code]).df()

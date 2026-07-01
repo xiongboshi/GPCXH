@@ -749,7 +749,7 @@
                         markPoints.push({
                             coord: [idx, m.price],
                             symbol: 'pin',
-                            symbolSize: 50,
+                            symbolSize: 20,
                             itemStyle: { color: '#f0b90b' },
                             label: {
                                 show: true,
@@ -789,17 +789,16 @@
                         return html;
                     }
                 },
-                // ★ 添加 dataZoom 支持缩放和平移 ★
                 dataZoom: [
                     {
-                        type: 'inside',        // 鼠标滚轮缩放
+                        type: 'inside',
                         start: 0,
                         end: 100,
                         minSpan: 5,
                         maxSpan: 100,
                     },
                     {
-                        type: 'slider',        // 底部滑块，可拖动平移
+                        type: 'slider',
                         start: 0,
                         end: 100,
                         minSpan: 5,
@@ -810,18 +809,18 @@
                         fillerColor: 'rgba(240,185,11,0.15)',
                         handleStyle: { color: '#f0b90b' },
                         textStyle: { color: '#6a7a8e' },
-                        xAxisIndex: [0, 1],    // 同时控制两个xAxis
+                        xAxisIndex: [0, 1],
                     }
                 ],
                 grid: [
-                    { left: '6%', right: '6%', top: '8%', height: '58%' },   // K线区域高度略减
-                    { left: '6%', right: '6%', top: '70%', height: '18%' }    // 成交量区域，为滑块留出底部空间
+                    { left: '6%', right: '6%', top: '8%', height: '58%' },
+                    { left: '6%', right: '6%', top: '70%', height: '18%' }
                 ],
                 xAxis: [
                     {
                         type: 'category',
                         data: dates,
-                        scale: true,           // 允许缩放
+                        scale: true,
                         axisLabel: { color: '#6a7a8e', interval: Math.floor(dates.length / 20) },
                         axisLine: { lineStyle: { color: '#1a2332' } },
                         gridIndex: 0
@@ -864,15 +863,11 @@
                             borderColor: '#ff1744',
                             borderColor0: '#00c853',
                         },
-                        markLine: {
-                            silent: true,
-                            data: [{ type: 'average', name: '均价', lineStyle: { color: '#f0b90b', type: 'dashed' } }],
-                            label: { color: '#6a7a8e', fontSize: 10 }
-                        },
+                        // markLine 已移除（去掉虚线）
                         markPoint: {
                             data: markPoints,
                             symbol: 'pin',
-                            symbolSize: 50,
+                            symbolSize: 20,
                             itemStyle: { color: '#f0b90b' },
                             label: {
                                 show: true,
@@ -905,9 +900,6 @@
             setTimeout(() => chart && chart.resize(), 200);
         }
 
-
-
-        
 
 
         function renderTable(data) {
