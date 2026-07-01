@@ -1,13 +1,14 @@
-import time
+# import time
 from datetime import datetime, timedelta, time
 import pandas as pd
-import baostock
+# import baostock
 from slope import inside_break
 from 日线组合图形.index import check_touch_type, check_touch_type_pure
 from 公用方法.个股板块排行 import is_top_industry,check_continuous_buy_blocks_per_stock_with_email
 from 公用方法.个股概念排行 import is_hot_concept
 from 公用方法.分时直线拉升 import mintun_zx_ls
-from 公用方法.获取k线行情 import get_day_list
+# from 公用方法.获取k线行情 import get_day_list
+from 公用方法.getGPData import get_all_tickers, get_historical_kline
 
 
 # 创建报价对象
@@ -61,7 +62,8 @@ def get_threading_list(gp_arr, gp_zt_arr, gp_zt_ph_arr, bs: baostock):
             # 获取当前日期
             start_date = datetime.now()
             now_day = (start_date).strftime("%Y-%m-%d")
-            gp_id = gp_row['stock_code'][0:2]+'.'+gp_row['stock_code'][2:]
+            # gp_id = gp_row['stock_code'][0:2]+'.'+gp_row['stock_code'][2:]
+            gp_id = gp_row['stock_code'][2:] + '.' + gp_row['stock_code'][0:2].upper()
             gp_row['gp_id'] = gp_id
             
             #个股价格大于40不看
@@ -88,8 +90,7 @@ def get_threading_list(gp_arr, gp_zt_arr, gp_zt_ph_arr, bs: baostock):
             
             
             #取出每只股票300天的日线数据
-            df = get_day_list(bs, gp_id, prev_day, now_day,
-                                "date,code,open,close,high,low,pctChg,volume")
+            df = get_historical_kline(gp_id, prev_day, now_day)
 
             if len(df) < 100:
                 continue
@@ -138,7 +139,7 @@ def get_threading_list(gp_arr, gp_zt_arr, gp_zt_ph_arr, bs: baostock):
 
 
 
-def get_threading_list_history(gp_arr, gp_zt_arr, gp_zt_ph_arr, bs: baostock):
+def get_threading_list_history(gp_arr, gp_zt_arr, gp_zt_ph_arr):
     '''
     历史数据-可用于回撤
     获取 纯k线,不做图形计算  
@@ -152,7 +153,8 @@ def get_threading_list_history(gp_arr, gp_zt_arr, gp_zt_ph_arr, bs: baostock):
             # 获取当前日期
             start_date = datetime.now()
             now_day = (start_date).strftime("%Y-%m-%d")
-            gp_id = gp_row['stock_code'][0:2]+'.'+gp_row['stock_code'][2:]
+            # gp_id = gp_row['stock_code'][0:2]+'.'+gp_row['stock_code'][2:]
+            gp_id = gp_row['stock_code'][2:] + '.' + gp_row['stock_code'][0:2].upper()
             gp_row['gp_id'] = gp_id
             
             #个股价格大于40不看
@@ -174,7 +176,7 @@ def get_threading_list_history(gp_arr, gp_zt_arr, gp_zt_ph_arr, bs: baostock):
             
             #取出每只股票30天的日线数据
             prev_day = (start_date + timedelta(days=-30)).strftime("%Y-%m-%d") 
-            df = get_day_list(bs, gp_id, prev_day, now_day,
+            df = get_day_list(gp_id, prev_day, now_day,
                                 "date,code,open,close,high,low,pctChg,volume")
 
             if len(df) < 15:
@@ -193,7 +195,7 @@ def get_threading_list_history(gp_arr, gp_zt_arr, gp_zt_ph_arr, bs: baostock):
             
             
             #计算组合图形(日线背靠背图形)
-            check_touch_type_pure(bs, df, df.iloc[-1]['code'], '日线', gp_row)
+            # check_touch_type_pure(df, df.iloc[-1]['code'], '日线', gp_row)
 
             
     except Exception as e:

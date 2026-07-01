@@ -9,7 +9,7 @@ from 日线组合图形.index_碗形 import check_bowl_shaped_碗形
 from 日线组合图形.index_龙虎突破 import check_Double_U_龙虎突破
 from database.makedata import get_tactics_data
 from database.makedata import save_shape_data
-from 公用方法.macd import calculate_macd
+# from 公用方法.macd import calculate_macd
 import baostock
 
 
