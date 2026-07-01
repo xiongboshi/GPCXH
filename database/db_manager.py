@@ -369,11 +369,10 @@ class DuckDBManager:
         return df['thscode'].tolist() if not df.empty else []
     
     # ============ K线数据管理 ============
-
     def insert_kline_data(self, df, thscode, name=""):
         """
         插入K线数据（带过滤 + 涨跌幅计算）
-        涨跌幅：每个日期显示前一个交易日的涨跌幅
+        涨跌幅：第N天显示第N天相对第N-1天的涨跌幅
         """
         if df.empty:
             return 0
@@ -390,21 +389,19 @@ class DuckDBManager:
             # 按日期升序排序（从旧到新）
             df = df.sort_values('date_ms', ascending=True).reset_index(drop=True)
             
-            # 计算原始涨跌幅（当日相对前一日）
+            # ✅ 关键修改：移除 shift(1)，直接使用原始涨跌幅
             df['pct_chg'] = df['close_price'].pct_change() * 100
             df['pct_chg'] = df['pct_chg'].round(2).fillna(0)
-            
-            # ✅ 关键：整体后移一天，每个日期显示前一天的涨跌幅
-            df['pct_chg'] = df['pct_chg'].shift(1).fillna(0)
+            # 不再使用 shift(1)
             
             # 股价过滤（使用最新收盘价）
             latest_price = df.iloc[-1]['close_price'] if not df.empty else 0
             if self.should_exclude_by_price(latest_price):
                 return 0
             
-            # 生成日期列
+            # 生成日期列（强制使用北京时间）
             df["thscode"] = thscode
-            df["trade_date"] = pd.to_datetime(df["date_ms"], unit="ms").dt.date
+            df["trade_date"] = pd.to_datetime(df["date_ms"], unit="ms", utc=True).dt.tz_convert('Asia/Shanghai').dt.date
             
             columns = ["thscode", "trade_date", "open_price", "high_price", 
                     "low_price", "close_price", "volume", "turnover", "pct_chg"]
@@ -428,8 +425,6 @@ class DuckDBManager:
             import traceback
             traceback.print_exc()
             return 0
-    
-
 
 
 
@@ -496,7 +491,7 @@ class DuckDBManager:
         return success_count, fail_count, skipped_count
     
     def daily_update_kline(self):
-        """每日收盘后增量更新K线数据"""
+        """每日收盘后增量更新K线数据（优化版）"""
         today = datetime.now().strftime("%Y-%m-%d")
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         
@@ -512,22 +507,18 @@ class DuckDBManager:
         skipped_count = 0
         price_skipped = 0
         
+        print(f"📊 共 {total} 只股票需要更新")
+        
         for i, thscode in enumerate(tickers):
             if self.should_exclude_stock(thscode):
                 skipped_count += 1
                 continue
-            
-            if (i + 1) % 50 == 0:
-                print(f"更新进度: {i+1}/{total} - {thscode}")
-            else:
-                print(f"更新进度: {i+1}/{total} - {thscode}")
             
             try:
                 bars = get_historical_kline(thscode, yesterday, today)
                 
                 if bars:
                     df = pd.DataFrame(bars)
-                    # 检查股价
                     latest_price = df.iloc[-1]['close_price'] if not df.empty else 0
                     if self.should_exclude_by_price(latest_price):
                         price_skipped += 1
@@ -535,10 +526,12 @@ class DuckDBManager:
                     self.insert_kline_data(df, thscode)
                     success_count += 1
                 
-                if (i + 1) % 50 == 0:
-                    print(f"💾 已更新 {i+1} 只，成功 {success_count}，代码跳过 {skipped_count}，股价跳过 {price_skipped}")
+                # 优化：每100只打印一次进度（而不是每50只）
+                if (i + 1) % 100 == 0:
+                    print(f"💾 已更新 {i+1}/{total} 只，成功 {success_count}")
                 
-                time.sleep(0.3)
+                # 优化：减少sleep，从0.3改为0.15
+                time.sleep(0.15)
                 
             except Exception as e:
                 print(f"❌ {thscode} 更新失败: {e}")
@@ -546,7 +539,11 @@ class DuckDBManager:
         print(f"✅ {today} K线更新完成！成功更新 {success_count} 只股票")
         print(f"   - 代码跳过: {skipped_count}，股价跳过: {price_skipped}")
         return success_count
-    
+
+
+
+
+
     # ============ 查询数据 ============
     def query_data(self, thscode=None, start_date=None, end_date=None, limit=10):
         """查询日线数据（含涨跌幅）"""

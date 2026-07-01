@@ -28,12 +28,12 @@ if saved_count == 0:
 
 # 4. 更新实时快照数据
 filtered_tickers = manager.get_all_stock_codes()
-# print("\n📸 更新实时快照...")
-# manager.update_stock_list_snapshot(filtered_tickers)
+print("\n📸 更新实时快照...")
+manager.update_stock_list_snapshot(filtered_tickers)
 
 # 5. 批量获取K线
 print("\n📊 开始获取K线数据...")
-start_date = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
+start_date = (datetime.now() - timedelta(days=360)).strftime("%Y-%m-%d")
 end_date = datetime.now().strftime("%Y-%m-%d")
 print(f"📅 时间范围: {start_date} 至 {end_date}")
 

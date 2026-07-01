@@ -1,83 +1,206 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- <title>股票日线数据查看</title> -->
+    <title>股票日线数据查看</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Microsoft YaHei', Arial, sans-serif;
             background: #0a0e17;
             color: #e0e0e0;
             padding: 20px;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .header {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 0; border-bottom: 1px solid #1a2332; margin-bottom: 20px;
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
         }
-        .header h1 { font-size: 22px; color: #f0b90b; }
-        .header .sub { color: #6a7a8e; font-size: 13px; }
-        .header .status { font-size: 12px; color: #6a7a8e; }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #1a2332;
+            margin-bottom: 20px;
+        }
+
+        .header .sub {
+            color: #6a7a8e;
+            font-size: 13px;
+        }
+
+        .header .status {
+            font-size: 12px;
+            color: #6a7a8e;
+        }
 
         .controls {
-            background: #111927; border-radius: 12px; padding: 20px;
-            border: 1px solid #1a2332; margin-bottom: 15px;
-            display: flex; flex-wrap: wrap; gap: 15px; align-items: end;
+            background: #111927;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #1a2332;
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: end;
         }
-        .controls .group { flex: 1; min-width: 150px; }
-        .controls label { display: block; font-size: 11px; color: #6a7a8e; margin-bottom: 4px; }
-        .controls input, .controls select {
-            width: 100%; padding: 8px 12px;
-            background: #0d1421; border: 1px solid #1a2332; border-radius: 6px;
-            color: #e0e0e0; font-size: 14px;
-        }
-        .controls input:focus, .controls select:focus { outline: none; border-color: #f0b90b; }
 
-        .search-wrapper { position: relative; flex: 1; min-width: 150px; }
+        .controls .group {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .controls label {
+            display: block;
+            font-size: 11px;
+            color: #6a7a8e;
+            margin-bottom: 4px;
+        }
+
+        .controls input,
+        .controls select {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0d1421;
+            border: 1px solid #1a2332;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        .controls input:focus,
+        .controls select:focus {
+            outline: none;
+            border-color: #f0b90b;
+        }
+
+        .search-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 150px;
+        }
+
         .search-wrapper input {
-            width: 100%; padding: 8px 12px;
-            background: #0d1421; border: 1px solid #1a2332; border-radius: 6px;
-            color: #e0e0e0; font-size: 14px;
+            width: 100%;
+            padding: 8px 12px;
+            background: #0d1421;
+            border: 1px solid #1a2332;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 14px;
         }
-        .search-wrapper input:focus { outline: none; border-color: #f0b90b; }
+
+        .search-wrapper input:focus {
+            outline: none;
+            border-color: #f0b90b;
+        }
+
         .suggestions {
-            position: absolute; top: 100%; left: 0; right: 0;
-            background: #111927; border: 1px solid #1a2332; border-radius: 6px;
-            max-height: 200px; overflow-y: auto; z-index: 100; display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #111927;
+            border: 1px solid #1a2332;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
         }
+
         .suggestions .item {
-            padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #1a2332; font-size: 13px;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #1a2332;
+            font-size: 13px;
         }
-        .suggestions .item:hover { background: #1a2332; }
-        .suggestions .item .code { color: #f0b90b; font-weight: 600; }
-        .suggestions .item .name { color: #6a7a8e; margin-left: 10px; }
-        .suggestions .no-result { padding: 12px; color: #6a7a8e; text-align: center; }
+
+        .suggestions .item:hover {
+            background: #1a2332;
+        }
+
+        .suggestions .item .code {
+            color: #f0b90b;
+            font-weight: 600;
+        }
+
+        .suggestions .item .name {
+            color: #6a7a8e;
+            margin-left: 10px;
+        }
+
+        .suggestions .no-result {
+            padding: 12px;
+            color: #6a7a8e;
+            text-align: center;
+        }
 
         .btn {
-            padding: 8px 28px; border: none; border-radius: 6px;
+            padding: 8px 28px;
+            border: none;
+            border-radius: 6px;
             background: linear-gradient(135deg, #f0b90b, #d4a008);
-            color: #0a0e17; font-weight: 600; cursor: pointer; font-size: 14px; transition: all 0.3s;
+            color: #0a0e17;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
         }
-        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(240,185,11,0.3); }
-        .btn-sm { padding: 6px 16px; font-size: 12px; }
-        .btn-secondary { background: #1a2332; color: #e0e0e0; }
-        .btn-secondary:hover { background: #24344a; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        .btn-danger { background: #c0392b; color: #fff; }
-        .btn-danger:hover { background: #e74c3c; }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(240, 185, 11, 0.3);
+        }
+
+        .btn-sm {
+            padding: 6px 16px;
+            font-size: 12px;
+        }
+
+        .btn-secondary {
+            background: #1a2332;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #24344a;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
 
         .action-bar {
-            display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
-            background: #0d1421; padding: 12px 20px; border-radius: 8px;
-            margin-bottom: 20px; border: 1px solid #1a2332;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            background: #0d1421;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #1a2332;
         }
-        .action-bar .label { font-size: 12px; color: #6a7a8e; margin-right: 8px; }
+
+        .action-bar .label {
+            font-size: 12px;
+            color: #6a7a8e;
+            margin-right: 8px;
+        }
+
         .action-bar .log-box {
             flex: 1;
             min-width: 200px;
-            max-height: 150px;           /* 限制高度 */
-            overflow-y: auto;            /* 滚动条 */
+            max-height: 150px;
+            overflow-y: auto;
             background: #0a0e17;
             border-radius: 6px;
             padding: 8px 12px;
@@ -88,408 +211,716 @@
             white-space: pre-wrap;
             word-break: break-all;
         }
-        .action-bar .log-box .log-success { color: #00c853; }
-        .action-bar .log-box .log-error { color: #ff1744; }
-        .action-bar .log-box .log-info { color: #f0b90b; }
+
+        .action-bar .log-box .log-success {
+            color: #00c853;
+        }
+
+        .action-bar .log-box .log-error {
+            color: #ff1744;
+        }
+
+        .action-bar .log-box .log-info {
+            color: #f0b90b;
+        }
+
+        #limitUpArea {
+            background: #111927;
+            border-radius: 12px;
+            border: 1px solid #1a2332;
+            margin-bottom: 20px;
+            padding: 15px;
+        }
+
+        #limitUpArea .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        #limitUpArea .header-row span {
+            font-weight: 600;
+            color: #f0b90b;
+        }
 
         .chart-container {
-            background: #111927; border-radius: 12px; border: 1px solid #1a2332;
-            margin-bottom: 20px; overflow: hidden;
+            background: #111927;
+            border-radius: 12px;
+            border: 1px solid #1a2332;
+            margin-bottom: 20px;
+            overflow: hidden;
         }
+
         .chart-container .chart-header {
-            padding: 12px 20px; border-bottom: 1px solid #1a2332;
-            display: flex; justify-content: space-between; align-items: center;
-            background: #0d1421; flex-wrap: wrap; gap: 8px;
+            padding: 12px 20px;
+            border-bottom: 1px solid #1a2332;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0d1421;
+            flex-wrap: wrap;
+            gap: 8px;
         }
+
         .chart-container .chart-title {
-            font-size: 14px; font-weight: 600; color: #e0e0e0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #e0e0e0;
         }
+
         .chart-container .chart-title .badge {
-            background: #1a2332; padding: 2px 10px; border-radius: 12px;
-            font-size: 11px; color: #6a7a8e; margin-left: 8px;
+            background: #1a2332;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #6a7a8e;
+            margin-left: 8px;
         }
-        #klineChart { width: 100%; height: 560px; background: #0a0e17; }
 
-        .table-wrap { max-height: 400px; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        #klineChart {
+            width: 100%;
+            height: 560px;
+            background: #0a0e17;
+        }
+
+        .table-wrap {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
         th {
-            text-align: left; padding: 8px 12px; background: #0d1421;
-            color: #6a7a8e; font-weight: 600; font-size: 11px;
-            position: sticky; top: 0; z-index: 1;
+            text-align: left;
+            padding: 8px 12px;
+            background: #0d1421;
+            color: #6a7a8e;
+            font-weight: 600;
+            font-size: 11px;
+            position: sticky;
+            top: 0;
+            z-index: 1;
         }
-        td { padding: 6px 12px; border-bottom: 1px solid #1a2332; }
-        .up { color: #ff1744; }
-        .down { color: #00c853; }
-        .vol { color: #6a7a8e; }
 
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: #0d1421; }
-        ::-webkit-scrollbar-thumb { background: #1a2332; border-radius: 4px; }
+        td {
+            padding: 6px 12px;
+            border-bottom: 1px solid #1a2332;
+        }
+
+        .up {
+            color: #ff1744;
+        }
+
+        .down {
+            color: #00c853;
+        }
+
+        .vol {
+            color: #6a7a8e;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0d1421;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #1a2332;
+            border-radius: 4px;
+        }
+
         .loading {
-            text-align: center; padding: 40px; color: #f0b90b;
+            text-align: center;
+            padding: 40px;
+            color: #f0b90b;
             display: none;
         }
+
         .loading .spinner {
-            width: 40px; height: 40px; border: 3px solid #1a2332;
-            border-top-color: #f0b90b; border-radius: 50%;
-            animation: spin 0.8s linear infinite; margin: 0 auto 15px;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #1a2332;
+            border-top-color: #f0b90b;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 15px;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .hidden { display: none !important; }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
 
         @media (max-width: 768px) {
-            .controls .group, .search-wrapper { min-width: 100%; }
-            .btn { width: 100%; justify-content: center; }
-            #klineChart { height: 360px; }
-            .action-bar { flex-direction: column; }
-            .action-bar .log-box { max-height: 100px; }
+
+            .controls .group,
+            .search-wrapper {
+                min-width: 100%;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            #klineChart {
+                height: 360px;
+            }
+
+            .action-bar {
+                flex-direction: column;
+            }
+
+            .action-bar .log-box {
+                max-height: 100px;
+            }
         }
     </style>
 </head>
+
 <body>
-<div class="container">
-    <div class="header">
-        <div>
-            <!-- <h1>📈 日线数据查看</h1> -->
-            <div class="sub">基于本地 DuckDB 数据库</div>
-        </div>
-        <div class="status" id="status">● 就绪</div>
-    </div>
-
-    <div class="controls">
-        <div class="search-wrapper" style="flex:2;">
-            <label>🔍 搜索</label>
-            <input type="text" id="stockInput" placeholder="输入代码或名称..." autocomplete="off">
-            <div class="suggestions" id="suggestions"></div>
-        </div>
-        <div class="group" style="flex:0.8;min-width:120px;">
-            <label>📈 显示条数</label>
-            <select id="limitSelect">
-                <option value="100">100</option>
-                <option value="300">300</option>
-                <option value="500" selected>500</option>
-                <option value="1000">1000</option>
-                <option value="2000">2000</option>
-            </select>
-        </div>
-        <div class="group" style="flex:0.5;min-width:80px;">
-            <label>&nbsp;</label>
-            <button class="btn" id="queryBtn">🔍 查询</button>
-        </div>
-    </div>
-
-    <!-- 操作按钮栏 -->
-    <div class="action-bar">
-        <span class="label">⚙️ 维护操作：</span>
-        <button class="btn btn-sm btn-secondary" id="btnUpdateKline">📊 盘后更新线</button>
-        <button class="btn btn-sm btn-secondary" id="btnUpdateSnapshot">📸 盘中更新快照</button>
-        <span style="color:#6a7a8e;font-size:11px;margin-left:8px;">执行日志：</span>
-        <div class="log-box" id="logBox">就绪</div>
-    </div>
-
-    <div class="loading" id="loadingDiv">
-        <div class="spinner"></div>
-        <div>加载数据中...</div>
-    </div>
-
-    <div id="resultArea" class="hidden">
-        <div class="chart-container">
-            <div class="chart-header">
-                <div class="chart-title">
-                    📊 K线图
-                    <span class="badge" id="klineInfo">加载中...</span>
-                </div>
-                <div style="display:flex;gap:12px;font-size:11px;color:#6a7a8e;">
-                    <span style="color:#ff1744;">● 阳线</span>
-                    <span style="color:#00c853;">● 阴线</span>
-                    <span style="color:#f0b90b;margin-left:8px;">⸺ 均价</span>
-                </div>
+    <div class="container">
+        <div class="header">
+            <div>
+                <div class="sub">基于本地 DuckDB 数据库</div>
             </div>
-            <div id="klineChart"></div>
+            <div class="status" id="status">● 就绪</div>
         </div>
 
-        <div class="chart-container">
-            <div class="chart-header">
-                <div class="chart-title">
-                    📋 数据表格
-                    <span class="badge" id="tableCount">0 条</span>
-                </div>
+        <div class="controls">
+            <div class="search-wrapper" style="flex:0.5;">
+                <label>🔍 搜索股票</label>
+                <input type="text" id="stockInput" placeholder="输入代码或名称..." autocomplete="off">
+                <div class="suggestions" id="suggestions"></div>
             </div>
-            <div class="table-wrap">
-                <table>
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>📈 显示条数</label>
+                <select id="limitSelect">
+                    <option value="100">100</option>
+                    <option value="300">300</option>
+                    <option value="500" selected>500</option>
+                    <option value="1000">1000</option>
+                    <option value="2000">2000</option>
+                </select>
+            </div>
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>&nbsp;</label>
+                <button class="btn" id="queryBtn">🔍 查询</button>
+            </div>
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" id="btnLimitUp">📈 涨T数据</button>
+            </div>
+        </div>
+
+        <div id="limitUpArea" class="hidden">
+            <div class="header-row">
+                <span>📈 最近12天涨T</span>
+                <button class="btn btn-sm btn-secondary" id="btnCloseLimitUp">✕ 关闭</button>
+            </div>
+            <div style="max-height:300px; overflow-y:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
                     <thead>
-                        <tr><th>日期</th><th>开盘</th><th>最高</th><th>最低</th><th>收盘</th><th>成交量</th><th>涨跌幅</th></tr>
+                        <tr>
+                            <th>代码</th>
+                            <th>名称</th>
+                            <th>涨停日期</th>
+                            <th>涨停价</th>
+                            <th>涨跌幅</th>
+                            <th>操作</th>
+                        </tr>
                     </thead>
-                    <tbody id="tableBody"></tbody>
+                    <tbody id="limitUpTableBody"></tbody>
                 </table>
             </div>
         </div>
+
+        <div class="action-bar">
+            <span class="label">⚙️ 维护操作：</span>
+            <button class="btn btn-sm btn-secondary" id="btnUpdateKline">📊 盘后更新K线</button>
+            <button class="btn btn-sm btn-secondary" id="btnUpdateSnapshot">📸 盘中更新快照</button>
+            <span style="color:#6a7a8e;font-size:11px;margin-left:8px;">执行日志：</span>
+            <div class="log-box" id="logBox">就绪</div>
+        </div>
+
+        <div class="loading" id="loadingDiv">
+            <div class="spinner"></div>
+            <div>加载数据中...</div>
+        </div>
+
+        <div id="resultArea" class="hidden">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">
+                        📊 K线图
+                        <span class="badge" id="klineInfo">加载中...</span>
+                    </div>
+                    <div style="display:flex;gap:12px;font-size:11px;color:#6a7a8e;">
+                        <span style="color:#ff1744;">● 阳线</span>
+                        <span style="color:#00c853;">● 阴线</span>
+                        <span style="color:#f0b90b;margin-left:8px;">⸺ 均价</span>
+                    </div>
+                </div>
+                <div id="klineChart"></div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-header">
+                    <div class="chart-title">
+                        📋 数据表格
+                        <span class="badge" id="tableCount">0 条</span>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>日期</th>
+                                <th>开盘</th>
+                                <th>最高</th>
+                                <th>最低</th>
+                                <th>收盘</th>
+                                <th>成交量</th>
+                                <th>涨跌幅</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-<script>
-    let chart = null;
-    let selectedStock = null;
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script>
+        let chart = null;
+        let selectedStock = null;
+        let currentKlineData = null;
 
-    const stockInput = document.getElementById('stockInput');
-    const suggestionsDiv = document.getElementById('suggestions');
-    const queryBtn = document.getElementById('queryBtn');
-    const limitSelect = document.getElementById('limitSelect');
-    const logBox = document.getElementById('logBox');
-    let searchTimer = null;
+        const stockInput = document.getElementById('stockInput');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const queryBtn = document.getElementById('queryBtn');
+        const limitSelect = document.getElementById('limitSelect');
+        const logBox = document.getElementById('logBox');
+        let searchTimer = null;
 
-    // 日志输出函数
-    function appendLog(message, type='info') {
-        const prefix = type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ';
-        const cls = type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : 'log-info';
-        const line = document.createElement('div');
-        line.className = cls;
-        line.textContent = prefix + message;
-        logBox.appendChild(line);
-        logBox.scrollTop = logBox.scrollHeight;
-        // 保留最近50条
-        while (logBox.children.length > 50) {
-            logBox.removeChild(logBox.firstChild);
+        function appendLog(message, type = 'info') {
+            const prefix = type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ';
+            const cls = type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : 'log-info';
+            const line = document.createElement('div');
+            line.className = cls;
+            line.textContent = prefix + message;
+            logBox.appendChild(line);
+            logBox.scrollTop = logBox.scrollHeight;
+            while (logBox.children.length > 50) logBox.removeChild(logBox.firstChild);
         }
-    }
+        function clearLog() { logBox.innerHTML = ''; }
 
-    // 清空日志
-    function clearLog() {
-        logBox.innerHTML = '';
-    }
-
-    // 执行维护操作
-    async function runMaintenance(endpoint, button, actionName) {
-        const originalText = button.textContent;
-        button.disabled = true;
-        button.textContent = '⏳ 执行中...';
-        clearLog();
-        appendLog(`开始执行 ${actionName}...`, 'info');
-
-        try {
-            const response = await fetch(endpoint, { method: 'POST' });
-            const result = await response.json();
-            if (result.success) {
-                appendLog(`${actionName} 执行完成！`, 'success');
-                if (result.output) {
-                    const lines = result.output.split('\n').filter(s => s.trim());
-                    lines.forEach(line => appendLog(line, 'info'));
+        async function runMaintenance(endpoint, button, actionName) {
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = '⏳ 执行中...';
+            clearLog();
+            appendLog(`开始执行 ${actionName}...`, 'info');
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    appendLog(`${actionName} 执行完成！`, 'success');
+                    if (result.output) {
+                        const lines = result.output.split('\n').filter(s => s.trim());
+                        lines.forEach(line => appendLog(line, 'info'));
+                    }
+                    if (result.error) appendLog('错误信息: ' + result.error, 'error');
+                } else {
+                    appendLog(`${actionName} 执行失败: ${result.error}`, 'error');
                 }
-                if (result.error) {
-                    appendLog('错误信息: ' + result.error, 'error');
-                }
-            } else {
-                appendLog(`${actionName} 执行失败: ${result.error}`, 'error');
+            } catch (err) {
+                appendLog(`请求失败: ${err.message}`, 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
             }
-        } catch (err) {
-            appendLog(`请求失败: ${err.message}`, 'error');
-        } finally {
-            button.disabled = false;
-            button.textContent = originalText;
         }
-    }
 
-    document.getElementById('btnUpdateKline').addEventListener('click', function(e) {
-        runMaintenance('/api/update_kline', this, '盘后更新K线');
-    });
+        document.getElementById('btnUpdateKline').addEventListener('click', function (e) {
+            runMaintenance('/api/update_kline', this, '盘后更新K线');
+        });
+        document.getElementById('btnUpdateSnapshot').addEventListener('click', function (e) {
+            runMaintenance('/api/update_snapshot', this, '盘中更新快照');
+        });
 
-    document.getElementById('btnUpdateSnapshot').addEventListener('click', function(e) {
-        runMaintenance('/api/update_snapshot', this, '盘中更新快照');
-    });
+        // ======== 搜索逻辑 ========
+        stockInput.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            const q = this.value.trim();
+            if (q.length < 1) { suggestionsDiv.style.display = 'none'; return; }
+            searchTimer = setTimeout(() => searchStocks(q), 300);
+        });
 
-    // ======== 搜索逻辑 ========
-    stockInput.addEventListener('input', function() {
-        clearTimeout(searchTimer);
-        const q = this.value.trim();
-        if (q.length < 1) {
-            suggestionsDiv.style.display = 'none';
-            return;
-        }
-        searchTimer = setTimeout(() => searchStocks(q), 300);
-    });
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.search-wrapper')) suggestionsDiv.style.display = 'none';
+        });
 
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.search-wrapper')) {
-            suggestionsDiv.style.display = 'none';
-        }
-    });
-
-    function searchStocks(q) {
-        fetch(`/api/search_stocks?q=${encodeURIComponent(q)}`)
-            .then(res => res.json())
-            .then(data => {
-                suggestionsDiv.innerHTML = '';
-                if (data.length === 0) {
-                    suggestionsDiv.innerHTML = '<div class="no-result">没有找到匹配的股票</div>';
-                    suggestionsDiv.style.display = 'block';
-                    return;
-                }
-                data.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = 'item';
-                    div.innerHTML = `<span class="code">${item.thscode}</span><span class="name">${item.name || ''}</span>`;
-                    div.addEventListener('click', function() {
-                        selectedStock = item;
-                        stockInput.value = item.thscode + (item.name ? ' (' + item.name + ')' : '');
-                        suggestionsDiv.style.display = 'none';
-                        queryBtn.click();
+        function searchStocks(q) {
+            fetch(`/api/search_stocks?q=${encodeURIComponent(q)}`)
+                .then(res => res.json())
+                .then(data => {
+                    suggestionsDiv.innerHTML = '';
+                    if (data.length === 0) {
+                        suggestionsDiv.innerHTML = '<div class="no-result">没有找到匹配的股票</div>';
+                        suggestionsDiv.style.display = 'block';
+                        return;
+                    }
+                    data.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'item';
+                        div.innerHTML = `<span class="code">${item.thscode}</span><span class="name">${item.name || ''}</span>`;
+                        div.addEventListener('click', function () {
+                            selectedStock = item;
+                            stockInput.value = item.thscode + (item.name ? ' (' + item.name + ')' : '');
+                            suggestionsDiv.style.display = 'none';
+                            queryBtn.click();
+                        });
+                        suggestionsDiv.appendChild(div);
                     });
-                    suggestionsDiv.appendChild(div);
+                    suggestionsDiv.style.display = 'block';
+                })
+                .catch(err => {
+                    console.error('搜索失败:', err);
+                    suggestionsDiv.innerHTML = '<div class="no-result">搜索失败，请重试</div>';
+                    suggestionsDiv.style.display = 'block';
                 });
-                suggestionsDiv.style.display = 'block';
-            })
-            .catch(err => {
-                console.error('搜索失败:', err);
-                suggestionsDiv.innerHTML = '<div class="no-result">搜索失败，请重试</div>';
-                suggestionsDiv.style.display = 'block';
-            });
-    }
-
-    // ======== 查询按钮 ========
-    queryBtn.addEventListener('click', function() {
-        const code = selectedStock ? selectedStock.thscode : null;
-        if (!code) {
-            alert('请先搜索并选择一只股票');
-            return;
         }
-        const limit = limitSelect.value;
-        document.getElementById('loadingDiv').style.display = 'block';
-        document.getElementById('resultArea').classList.add('hidden');
-        document.getElementById('status').textContent = '⏳ 加载中...';
 
-        fetch(`/api/kline?code=${code}&limit=${limit}`)
-            .then(res => {
-                if (!res.ok) throw new Error('请求失败');
-                return res.json();
-            })
-            .then(data => {
-                document.getElementById('loadingDiv').style.display = 'none';
-                document.getElementById('resultArea').classList.remove('hidden');
-                document.getElementById('status').textContent = '✅ 加载完成 ' + data.length + ' 条';
-                renderChart(data);
-                renderTable(data);
-                document.getElementById('klineInfo').textContent = data.length + ' 根K线';
-                document.getElementById('tableCount').textContent = data.length + ' 条';
-            })
-            .catch(err => {
-                document.getElementById('loadingDiv').style.display = 'none';
-                document.getElementById('status').textContent = '❌ 加载失败';
-                alert('加载失败: ' + err.message);
-            });
-    });
+        // ======== 查询按钮 ========
+        queryBtn.addEventListener('click', function () {
+            const code = selectedStock ? selectedStock.thscode : null;
+            if (!code) { alert('请先搜索并选择一只股票'); return; }
+            const limit = limitSelect.value;
+            document.getElementById('loadingDiv').style.display = 'block';
+            document.getElementById('resultArea').classList.add('hidden');
+            document.getElementById('status').textContent = '⏳ 加载中...';
+            fetch(`/api/kline?code=${code}&limit=${limit}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('请求失败');
+                    return res.json();
+                })
+                .then(data => {
+                    document.getElementById('loadingDiv').style.display = 'none';
+                    document.getElementById('resultArea').classList.remove('hidden');
+                    document.getElementById('status').textContent = '✅ 加载完成 ' + data.length + ' 条';
+                    renderChart(data, null);
+                    renderTable(data);
+                    document.getElementById('klineInfo').textContent = data.length + ' 根K线';
+                    document.getElementById('tableCount').textContent = data.length + ' 条';
+                    currentKlineData = { data: data, markers: null };
+                })
+                .catch(err => {
+                    document.getElementById('loadingDiv').style.display = 'none';
+                    document.getElementById('status').textContent = '❌ 加载失败';
+                    alert('加载失败: ' + err.message);
+                });
+        });
 
-    stockInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if (selectedStock) {
-                queryBtn.click();
-            } else {
-                const firstItem = suggestionsDiv.querySelector('.item');
-                if (firstItem) firstItem.click();
-            }
-        }
-    });
-
-    // ======== 图表渲染 ========
-    function renderChart(data) {
-        const container = document.getElementById('klineChart');
-        if (!chart) {
-            chart = echarts.init(container);
-            window.addEventListener('resize', () => chart && chart.resize());
-        }
-        const dates = data.map(d => d.trade_date);
-        const kValues = data.map(d => [d.open_price, d.close_price, d.low_price, d.high_price]);
-        const volumes = data.map(d => d.volume);
-        const maxVolume = Math.max(...volumes, 1);
-
-        const option = {
-            tooltip: {
-                trigger: 'axis',
-                axisPointer: { type: 'cross' },
-                formatter: function(params) {
-                    const idx = params[0].dataIndex;
-                    const d = data[idx];
-                    if (!d) return '';
-                    return `
-                        <div style="font-weight:600;">${d.trade_date}</div>
-                        开盘: ${d.open_price}<br>
-                        最高: ${d.high_price}<br>
-                        最低: ${d.low_price}<br>
-                        收盘: ${d.close_price}<br>
-                        成交量: ${d.volume}<br>
-                        涨跌幅: ${d.pct_chg ? d.pct_chg.toFixed(2) : '0.00'}%
-                    `;
+        stockInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selectedStock) { queryBtn.click(); }
+                else {
+                    const firstItem = suggestionsDiv.querySelector('.item');
+                    if (firstItem) firstItem.click();
                 }
-            },
-            grid: [
-                { left: '6%', right: '6%', top: '8%', height: '62%' },
-                { left: '6%', right: '6%', top: '74%', height: '18%' }
-            ],
-            xAxis: [
-                { type: 'category', data: dates, scale: true,
-                  axisLabel: { color: '#6a7a8e', interval: Math.floor(dates.length / 20) },
-                  axisLine: { lineStyle: { color: '#1a2332' } }, gridIndex: 0 },
-                { type: 'category', data: dates, scale: true,
-                  axisLabel: { show: false }, axisLine: { show: false }, gridIndex: 1 }
-            ],
-            yAxis: [
-                { scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
-                  axisLabel: { color: '#6a7a8e' }, gridIndex: 0 },
-                { scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
-                  axisLabel: { color: '#6a7a8e' }, gridIndex: 1,
-                  min: 0, max: maxVolume * 1.2 }
-            ],
-            series: [
-                {
-                    name: 'K线',
-                    type: 'candlestick',
-                    data: kValues,
-                    xAxisIndex: 0,
-                    yAxisIndex: 0,
-                    itemStyle: {
-                        color: '#ff1744',
-                        color0: '#00c853',
-                        borderColor: '#ff1744',
-                        borderColor0: '#00c853',
-                    },
-                    markLine: {
-                        silent: true,
-                        data: [{ type: 'average', name: '均价', lineStyle: { color: '#f0b90b', type: 'dashed' } }],
-                        label: { color: '#6a7a8e', fontSize: 10 }
+            }
+        });
+
+        // ======== 涨停股票功能 ========
+        const btnLimitUp = document.getElementById('btnLimitUp');
+        const limitUpArea = document.getElementById('limitUpArea');
+        const btnCloseLimitUp = document.getElementById('btnCloseLimitUp');
+        const limitUpTableBody = document.getElementById('limitUpTableBody');
+
+        btnLimitUp.addEventListener('click', function () {
+            fetch('/api/limit_up_stocks')
+                .then(res => res.json())
+                .then(data => {
+                    const stocks = data.stocks || [];
+                    limitUpTableBody.innerHTML = '';
+                    if (stocks.length === 0) {
+                        limitUpTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6a7a8e;padding:20px;">最近12天无涨停股票</td></tr>';
+                    } else {
+                        stocks.forEach(item => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                            <td>${item.thscode}</td>
+                            <td>${item.name || ''}</td>
+                            <td>${item.trade_date}</td>
+                            <td>${item.close_price}</td>
+                            <td style="color:#f0b90b;">+${item.pct_chg.toFixed(2)}%</td>
+                            <td><button class="btn btn-sm btn-secondary" data-code="${item.thscode}" onclick="loadKlineWithMarker('${item.thscode}')">查看K线</button></td>
+                        `;
+                            limitUpTableBody.appendChild(tr);
+                        });
+                    }
+                    limitUpArea.classList.remove('hidden');
+                })
+                .catch(err => { alert('加载涨停股票失败: ' + err.message); });
+        });
+
+        btnCloseLimitUp.addEventListener('click', function () {
+            limitUpArea.classList.add('hidden');
+        });
+
+        // 加载带标记的K线
+        function loadKlineWithMarker(code) {
+            const limit = limitSelect.value;
+            document.getElementById('loadingDiv').style.display = 'block';
+            document.getElementById('resultArea').classList.add('hidden');
+            document.getElementById('status').textContent = '⏳ 加载中...';
+
+            fetch(`/api/kline_with_marker?code=${code}&limit=${limit}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('请求失败');
+                    return res.json();
+                })
+                .then(result => {
+                    document.getElementById('loadingDiv').style.display = 'none';
+                    document.getElementById('resultArea').classList.remove('hidden');
+                    document.getElementById('status').textContent = '✅ 加载完成（含涨停标记）';
+                    renderChart(result.data, result.markers);
+                    renderTable(result.data);
+                    document.getElementById('klineInfo').textContent = result.data.length + ' 根K线';
+                    document.getElementById('tableCount').textContent = result.data.length + ' 条';
+                    currentKlineData = { data: result.data, markers: result.markers };
+                })
+                .catch(err => {
+                    document.getElementById('loadingDiv').style.display = 'none';
+                    document.getElementById('status').textContent = '❌ 加载失败';
+                    alert('加载失败: ' + err.message);
+                });
+        }
+
+        // ======== 图表渲染（彻底修复涨停标记位置） ========
+        function renderChart(data, markers) {
+            const container = document.getElementById('klineChart');
+            if (!chart) {
+                chart = echarts.init(container);
+                window.addEventListener('resize', () => chart && chart.resize());
+            }
+
+            // 1. 对K线数据按日期升序排序（确保顺序正确）
+            data.sort((a, b) => new Date(a.trade_date) - new Date(b.trade_date));
+
+            // 2. 提取日期并统一格式（只保留 YYYY-MM-DD）
+            const dates = data.map(d => {
+                let dateStr = d.trade_date;
+                if (dateStr && dateStr.length > 10) dateStr = dateStr.slice(0, 10);
+                return dateStr.trim();
+            });
+
+            const kValues = data.map(d => [d.open_price, d.close_price, d.low_price, d.high_price]);
+            const volumes = data.map(d => d.volume);
+            const maxVolume = Math.max(...volumes, 1);
+
+            // 3. 构建涨停标记（精确匹配日期）
+            const markPoints = [];
+            if (markers && markers.length > 0) {
+                markers.forEach(m => {
+                    let markerDate = m.trade_date;
+                    if (markerDate && markerDate.length > 10) markerDate = markerDate.slice(0, 10);
+                    markerDate = markerDate.trim();
+
+                    const idx = dates.findIndex(d => d === markerDate);
+                    if (idx !== -1) {
+                        markPoints.push({
+                            coord: [idx, m.price],
+                            symbol: 'pin',
+                            symbolSize: 50,
+                            itemStyle: { color: '#f0b90b' },
+                            label: {
+                                show: true,
+                                formatter: '涨停',
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: 'bold',
+                                position: 'top'
+                            }
+                        });
+                        console.log(`✅ 匹配成功: ${markerDate} → 索引 ${idx}`);
+                    } else {
+                        console.warn(`⚠️ 未找到涨停日期: ${markerDate}`);
+                    }
+                });
+            }
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' },
+                    formatter: function (params) {
+                        const idx = params[0].dataIndex;
+                        const d = data[idx];
+                        if (!d) return '';
+                        let html = `<div style="font-weight:600;">${d.trade_date}</div>
+                    开盘: ${d.open_price}<br>
+                    最高: ${d.high_price}<br>
+                    最低: ${d.low_price}<br>
+                    收盘: ${d.close_price}<br>
+                    成交量: ${d.volume}<br>
+                    涨跌幅: ${d.pct_chg ? d.pct_chg.toFixed(2) : '0.00'}%`;
+                        if (markers) {
+                            const marker = markers.find(m => m.trade_date === d.trade_date);
+                            if (marker) html += `<br><span style="color:#f0b90b;">🔺 涨停 ${marker.pct_chg.toFixed(2)}%</span>`;
+                        }
+                        return html;
                     }
                 },
-                {
-                    name: '成交量',
-                    type: 'bar',
-                    data: volumes,
-                    xAxisIndex: 1,
-                    yAxisIndex: 1,
-                    barWidth: '60%',
-                    itemStyle: {
-                        color: function(params) {
-                            const idx = params.dataIndex;
-                            return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
+                // ★ 添加 dataZoom 支持缩放和平移 ★
+                dataZoom: [
+                    {
+                        type: 'inside',        // 鼠标滚轮缩放
+                        start: 0,
+                        end: 100,
+                        minSpan: 5,
+                        maxSpan: 100,
+                    },
+                    {
+                        type: 'slider',        // 底部滑块，可拖动平移
+                        start: 0,
+                        end: 100,
+                        minSpan: 5,
+                        maxSpan: 100,
+                        height: 20,
+                        bottom: 5,
+                        borderColor: '#1a2332',
+                        fillerColor: 'rgba(240,185,11,0.15)',
+                        handleStyle: { color: '#f0b90b' },
+                        textStyle: { color: '#6a7a8e' },
+                        xAxisIndex: [0, 1],    // 同时控制两个xAxis
+                    }
+                ],
+                grid: [
+                    { left: '6%', right: '6%', top: '8%', height: '58%' },   // K线区域高度略减
+                    { left: '6%', right: '6%', top: '70%', height: '18%' }    // 成交量区域，为滑块留出底部空间
+                ],
+                xAxis: [
+                    {
+                        type: 'category',
+                        data: dates,
+                        scale: true,           // 允许缩放
+                        axisLabel: { color: '#6a7a8e', interval: Math.floor(dates.length / 20) },
+                        axisLine: { lineStyle: { color: '#1a2332' } },
+                        gridIndex: 0
+                    },
+                    {
+                        type: 'category',
+                        data: dates,
+                        scale: true,
+                        axisLabel: { show: false },
+                        axisLine: { show: false },
+                        gridIndex: 1
+                    }
+                ],
+                yAxis: [
+                    {
+                        scale: true,
+                        splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' },
+                        gridIndex: 0
+                    },
+                    {
+                        scale: true,
+                        splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' },
+                        gridIndex: 1,
+                        min: 0,
+                        max: maxVolume * 1.2
+                    }
+                ],
+                series: [
+                    {
+                        name: 'K线',
+                        type: 'candlestick',
+                        data: kValues,
+                        xAxisIndex: 0,
+                        yAxisIndex: 0,
+                        itemStyle: {
+                            color: '#ff1744',
+                            color0: '#00c853',
+                            borderColor: '#ff1744',
+                            borderColor0: '#00c853',
+                        },
+                        markLine: {
+                            silent: true,
+                            data: [{ type: 'average', name: '均价', lineStyle: { color: '#f0b90b', type: 'dashed' } }],
+                            label: { color: '#6a7a8e', fontSize: 10 }
+                        },
+                        markPoint: {
+                            data: markPoints,
+                            symbol: 'pin',
+                            symbolSize: 50,
+                            itemStyle: { color: '#f0b90b' },
+                            label: {
+                                show: true,
+                                formatter: '涨停',
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: 'bold',
+                                position: 'top'
+                            }
+                        }
+                    },
+                    {
+                        name: '成交量',
+                        type: 'bar',
+                        data: volumes,
+                        xAxisIndex: 1,
+                        yAxisIndex: 1,
+                        barWidth: '60%',
+                        itemStyle: {
+                            color: function (params) {
+                                const idx = params.dataIndex;
+                                return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
+                            }
                         }
                     }
-                }
-            ]
-        };
-        chart.setOption(option);
-        setTimeout(() => chart && chart.resize(), 200);
-    }
+                ]
+            };
 
-    function renderTable(data) {
-        const tbody = document.getElementById('tableBody');
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6a7a8e;padding:20px;">暂无数据</td></tr>';
-            return;
+            chart.setOption(option);
+            setTimeout(() => chart && chart.resize(), 200);
         }
-        const sorted = [...data].reverse();
-        tbody.innerHTML = sorted.map(d => {
-            const pct = d.pct_chg || 0;
-            const cls = pct > 0 ? 'up' : (pct < 0 ? 'down' : '');
-            return `<tr>
+
+
+
+        
+
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6a7a8e;padding:20px;">暂无数据</td></tr>';
+                return;
+            }
+            const sorted = [...data].reverse();
+            tbody.innerHTML = sorted.map(d => {
+                const pct = d.pct_chg || 0;
+                const cls = pct > 0 ? 'up' : (pct < 0 ? 'down' : '');
+                return `<tr>
                 <td>${d.trade_date}</td>
                 <td>${d.open_price}</td>
                 <td>${d.high_price}</td>
@@ -498,16 +929,15 @@
                 <td class="vol">${d.volume}</td>
                 <td class="${cls}">${pct > 0 ? '+' : ''}${pct.toFixed(2)}%</td>
             </tr>`;
-        }).join('');
-    }
+            }).join('');
+        }
 
-    // 初始聚焦
-    document.addEventListener('DOMContentLoaded', function() {
-        stockInput.focus();
-        // 清空日志，显示就绪
-        clearLog();
-        appendLog('系统就绪', 'info');
-    });
-</script>
+        document.addEventListener('DOMContentLoaded', function () {
+            stockInput.focus();
+            clearLog();
+            appendLog('系统就绪', 'info');
+        });
+    </script>
 </body>
+
 </html>
