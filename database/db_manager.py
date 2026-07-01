@@ -2,6 +2,7 @@
 数据操作层
 提供增删改查功能
 """
+import os
 import time
 import duckdb as duckdb_lib  # 使用别名避免冲突
 import pandas as pd
@@ -18,10 +19,14 @@ HEADERS = {"X-api-key": API_KEY}
 class DuckDBManager:
     """DuckDB 数据管理类"""
     
-    def __init__(self, db_path="database/market.duckdb"):
+    def __init__(self, db_path=None):
+        if db_path is None:
+            # 默认使用项目根目录/database/market.duckdb
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            db_path = os.path.join(base_dir, 'database', 'market.duckdb')
         self.db_path = db_path
         self.db = duckdb_lib.connect(db_path)
-        
+
         # ============ 过滤配置 ============
         self.filter_config = {
             'exclude_st': True,        # 排除ST股票

@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 from datetime import datetime, timedelta  
-from database.makedata import select_日U图形_row_data
-from 公用方法.垂线 import hammer_line
+# from database.makedata import select_日U图形_row_data
+from utils.垂线 import hammer_line
 
 touch_to_save ={
     'date':'',
@@ -28,6 +28,8 @@ def check_Double_U_双U形(df, symbol, time_type, tactics_df, gp_row):
     '''
     try:
         
+        return touch_to_save
+    
         #如果前三天涨连续涨了2个板不看(只做1，2板)
         if 'pctChg' in df.columns:
             df['pctChg'] = pd.to_numeric(df['pctChg'], errors='coerce')

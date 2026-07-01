@@ -1,3 +1,9 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import amount
+
 from flask import Flask, render_template, jsonify, request
 import duckdb
 import pandas as pd
@@ -5,8 +11,11 @@ import subprocess
 import os
 from datetime import datetime, timedelta
 
+# 项目根目录
 app = Flask(__name__)
-DB_PATH = "../database/market.duckdb"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, 'database', 'market.duckdb')
+
 
 def get_db():
     return duckdb.connect(DB_PATH)
@@ -161,6 +170,75 @@ def get_kline_with_marker():
             })
     
     return jsonify({'data': records, 'markers': markers})
+
+
+# ===== 策略检测接口 =====
+@app.route('/api/run_strategy', methods=['POST'])
+def run_strategy():
+    """
+    执行策略检测
+    """
+    try:
+        data = request.get_json()
+        strategy_type = data.get('strategy_type', 'full')
+        stock_list = data.get('stock_list', None)
+
+        # 如果未提供股票列表，则获取当前涨停股票（排除今天）
+        if not stock_list:
+            db = get_db()
+            # 直接查询涨停股票代码
+            date_sql = """
+                SELECT DISTINCT trade_date 
+                FROM daily_quotes 
+                ORDER BY trade_date DESC 
+                LIMIT 12
+            """
+            dates_df = db.execute(date_sql).df()
+            if dates_df.empty:
+                db.close()
+                return jsonify({'success': False, 'message': '没有交易日数据'}), 400
+            date_list = dates_df['trade_date'].tolist()
+            date_str = "', '".join([str(d) for d in date_list])
+            sql = f"""
+                WITH limit_up AS (
+                    SELECT 
+                        thscode,
+                        ROW_NUMBER() OVER (PARTITION BY thscode ORDER BY trade_date DESC) as rn
+                    FROM daily_quotes
+                    WHERE trade_date IN ('{date_str}')
+                      AND pct_chg >= 9.8
+                      AND trade_date != CURRENT_DATE
+                )
+                SELECT thscode
+                FROM limit_up
+                WHERE rn = 1
+            """
+            df = db.execute(sql).df()
+            db.close()
+            stock_list = df['thscode'].tolist() if not df.empty else []
+
+        if not stock_list:
+            return jsonify({'success': False, 'message': '没有可检测的股票'}), 400
+
+        # 执行策略
+        result_df = amount.run_strategy_on_stock_list(stock_list, lookback_days=300, strategy_type=strategy_type)
+
+        if result_df.empty:
+            return jsonify({'success': True, 'signals': [], 'count': 0, 'message': '未检测到信号'})
+        else:
+            signals = result_df.to_dict(orient='records')
+            for s in signals:
+                for k, v in s.items():
+                    if isinstance(v, pd.Timestamp):
+                        s[k] = v.strftime('%Y-%m-%d')
+            return jsonify({'success': True, 'signals': signals, 'count': len(signals)})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'策略执行异常: {str(e)}'}), 500
+    
+
 
 # ========== 后台维护接口 ==========
 def run_script(script_path, input_text, timeout=300):

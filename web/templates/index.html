@@ -423,7 +423,18 @@
             </div>
             <div class="group" style="flex:0.5;min-width:80px;">
                 <label>&nbsp;</label>
-                <button class="btn btn-secondary" id="btnLimitUp">📈 涨T数据</button>
+                <button class="btn btn-secondary" id="btnLimitUp">📈涨T数据</button>
+            </div>
+            <div class="group" style="flex:0.5;min-width:120px;">
+                <label>📊策略</label>
+                <select id="strategySelect">
+                    <option value="full">双U形</option>
+                    <!-- <option value="pure">仙人指路</option> -->
+                </select>
+            </div>
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" id="btnRunStrategy">🚀策略</button>
             </div>
         </div>
 
@@ -562,6 +573,33 @@
         });
         document.getElementById('btnUpdateSnapshot').addEventListener('click', function (e) {
             runMaintenance('/api/update_snapshot', this, '盘中更新快照');
+        });
+        document.getElementById('btnRunStrategy').addEventListener('click', function () {
+            const strategyType = document.getElementById('strategySelect').value;
+            appendLog('🚀 开始执行策略检测...', 'info');
+            fetch('/api/run_strategy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ strategy_type: strategyType })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.signals && data.signals.length > 0) {
+                            appendLog(`✅ 检测到 ${data.count} 个信号`, 'success');
+                            data.signals.forEach(s => {
+                                appendLog(`${s.symbol} - ${s.touch_type} - ${s.direction}`, 'info');
+                            });
+                        } else {
+                            appendLog('ℹ️ 未检测到信号', 'info');
+                        }
+                    } else {
+                        appendLog(`❌ 策略执行失败: ${data.message}`, 'error');
+                    }
+                })
+                .catch(err => {
+                    appendLog(`请求失败: ${err.message}`, 'error');
+                });
         });
 
         // ======== 搜索逻辑 ========

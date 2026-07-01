@@ -1,337 +1,210 @@
-# import time
-from datetime import datetime, timedelta, time
 import pandas as pd
-# import baostock
+import numpy as np
+import os
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# 策略检测模块（请确保这些模块存在）
+from 日线组合图形.index_双U形 import check_Double_U_双U形
+# from 日线组合图形.index_双炮台 import check_bowl_shaped_双炮台
+# from 日线组合图形.index_仙人指路 import check_bowl_shaped_仙人指路
+# from 日线组合图形.index_突破即回调 import check_bowl_shaped_突破即回调
+# from 日线组合图形.index_碗形 import check_bowl_shaped_碗形
+# from 日线组合图形.index_龙虎突破 import check_Double_U_龙虎突破
+
+# 数据库操作
+from database.shape_storage import get_tactics_data, save_shape_data
+from database.db_manager import DuckDBManager
+
+# ✅ 导入 inside_break（基础图形检测）
 from slope import inside_break
-from 日线组合图形.index import check_touch_type, check_touch_type_pure
-from 公用方法.个股板块排行 import is_top_industry,check_continuous_buy_blocks_per_stock_with_email
-from 公用方法.个股概念排行 import is_hot_concept
-from 公用方法.分时直线拉升 import mintun_zx_ls
-# from 公用方法.获取k线行情 import get_day_list
-from 公用方法.getGPData import get_all_tickers, get_historical_kline
 
 
-# 创建报价对象
-# quotation = eq.use('sina')  
-# 所有股票行情
-# quotation = eq.use('tencent')  # 新浪 ['sina'] 腾讯 ['tencent', 'qq']
-
-
-def get_up_win(gp_id, gp_row, list: pd.DataFrame, time_type = '日线'):
-    '''
-    组装今日当前日k，开始策略执行
-    '''
-    try:
-        
-        inside_break(list, time_type)
-        
-        df = pd.DataFrame([])
-        #向前查看40天
-        total_days_to_subtract = 150
-        for idx in range(total_days_to_subtract):
-            # 递减之前的天数
-            if idx == 0:
-                df = list
-            else:
-                # 使用 .loc 来避免 SettingWithCopyWarning
-                df = list.loc[:len(list) - idx - 1]  # 显示指定行范围
-
-            # 检查 df 是否为空
-            if df.empty:
-                print(f"Warning: DataFrame is empty after subtracting {idx} days.")
-                break  # 如果为空，退出循环
-            
-            df = pd.DataFrame(df)
-            inside_break(df, time_type)
-        
-    except Exception as e:
-        print('get_up_win()=>err:'+str(e))
-
-
-
-def get_threading_list(gp_arr, gp_zt_arr, gp_zt_ph_arr, bs: baostock):
-    '''
-    获取涨幅数据
-    gp_zt_arr 目前涨停的股票
-    '''
-    try:
-        
-        for gp_index, gp_row in gp_arr.iterrows():  
-            
-            
-            # 获取当前日期
-            start_date = datetime.now()
-            now_day = (start_date).strftime("%Y-%m-%d")
-            # gp_id = gp_row['stock_code'][0:2]+'.'+gp_row['stock_code'][2:]
-            gp_id = gp_row['stock_code'][2:] + '.' + gp_row['stock_code'][0:2].upper()
-            gp_row['gp_id'] = gp_id
-            
-            #个股价格大于40不看
-            if float(gp_row['now']) > 40:
-                continue
-            
-            
-            
-            # # 下午2点后不看策略
-            # two_pm = time(14, 0, 0)
-            # if start_date.time() > two_pm:
-            #     print("当前时间大于下午14.00点  不允许开仓了")
-            #     return
-            
-            
-            #个股行业板块排名是否在前6(板块强度)
-            # result = is_top_3_industry(gp_row['stock_code'], (start_date).strftime("%Y%m%d"), gp_zt_arr, gp_zt_ph_arr)
-            # if result == False:
-            #     continue
-            
-            
-            prev_day = (start_date + timedelta(days=-300)).strftime("%Y-%m-%d")
-            
-            
-            
-            #取出每只股票300天的日线数据
-            df = get_historical_kline(gp_id, prev_day, now_day)
-
-            if len(df) < 100:
-                continue
-            
-                        
-            # #分时2分钟涨幅大于5%同时个股涨幅大于6%(分时直线拉升)
-            # result = mintun_zx_ls(gp_row, gp_row['stock_code'][2:],6,2,5)
-            # if result == False:
-            #     continue
-            
-            
-            df['ma_orange_10'] = df['close'].rolling(10).mean()
-            df['ma_red_20'] = df['close'].rolling(20).mean()
-            df['ma_gray_60'] = df['close'].rolling(60).mean()
-            
-            #计算基础U图形
-            get_up_win(gp_id, gp_row, df)
-            
-            
-            #计算组合图形(日线背靠背图形)
-            check_touch_type(bs, df, df.iloc[-1]['code'], '日线', gp_row)
-            
-            #######################################
-            
-            # #取出每只股票400天的周线数据
-            # prev_day = (start_date + timedelta(days=-4000)).strftime("%Y-%m-%d")
-            # week_df = get_day_list(bs, gp_row['gp_id'], prev_day, now_day,
-            #                     "date,code,open,close,high,low,pctChg,volume", 'w')
-            
-            # if len(week_df) < 100:
-            #     continue
-            
-            # #计算基础U图形
-            # get_up_win(gp_id, gp_row, week_df, '周线')
-            
-
-            
-    except Exception as e:
-        print('get_threading_list()=>err:'+str(e))
-
-
-
-
-
-
-
-
-
-def get_threading_list_history(gp_arr, gp_zt_arr, gp_zt_ph_arr):
-    '''
-    历史数据-可用于回撤
-    获取 纯k线,不做图形计算  
-    gp_zt_arr 目前专用双炮台,仙人指路
-    '''
-    try:
-        
-        for gp_index, gp_row in gp_arr.iterrows():  
-            
-            
-            # 获取当前日期
-            start_date = datetime.now()
-            now_day = (start_date).strftime("%Y-%m-%d")
-            # gp_id = gp_row['stock_code'][0:2]+'.'+gp_row['stock_code'][2:]
-            gp_id = gp_row['stock_code'][2:] + '.' + gp_row['stock_code'][0:2].upper()
-            gp_row['gp_id'] = gp_id
-            
-            #个股价格大于40不看
-            if float(gp_row['now']) > 40:
-                continue
-            
-            
-            # # 个股行业板块排名是否在前10(板块强度)
-            # result = is_top_industry(gp_row['stock_code'], (start_date).strftime("%Y%m%d"), gp_zt_arr, gp_zt_ph_arr)
-            # if result == False:
-            #     continue
-
-            # # 个股行业概念排名是否在前10(板块强度)
-            # result = is_hot_concept(gp_row['stock_code'], (start_date).strftime("%Y%m%d"), gp_zt_arr, gp_zt_ph_arr)
-            # if result == False:
-            #     continue
-
-            
-            
-            #取出每只股票30天的日线数据
-            prev_day = (start_date + timedelta(days=-30)).strftime("%Y-%m-%d") 
-            df = get_day_list(gp_id, prev_day, now_day,
-                                "date,code,open,close,high,low,pctChg,volume")
-
-            if len(df) < 15:
-                continue
-            
-                        
-            # #分时2分钟涨幅大于5%同时个股涨幅大于6%(分时直线拉升)
-            # result = mintun_zx_ls(gp_row, gp_row['stock_code'][2:],6,2,5)
-            # if result == False:
-            #     continue
-            
-            #均线
-            df['ma_orange_10'] = df['close'].rolling(10).mean()
-            df['ma_red_20'] = df['close'].rolling(20).mean()
-            df['ma_gray_60'] = df['close'].rolling(60).mean()
-            
-            
-            #计算组合图形(日线背靠背图形)
-            # check_touch_type_pure(df, df.iloc[-1]['code'], '日线', gp_row)
-
-            
-    except Exception as e:
-        print('get_threading_list()=>err:'+str(e))
-
-
-
-
-
-
-
-def get_threading_list_realtime(gp_arr, gp_zt_arr, gp_zt_ph_arr, bs: baostock):
-    '''
-    实时数据
-    获取 纯k线,不做图形计算  
-    gp_zt_arr 目前专用双炮台,仙人指路
-    '''
-    all_signals = []  # 👈 收集本批次信号
-    try:
-        
-        for gp_index, gp_row in gp_arr.iterrows():  
-            
-            
-            # 获取当前日期
-            start_date = datetime.now()
-            now_day = (start_date).strftime("%Y-%m-%d")
-            gp_id = gp_row['stock_code'][0:2]+'.'+gp_row['stock_code'][2:]
-            gp_row['gp_id'] = gp_id
-            
-            #个股价格大于40不看
-            if float(gp_row['now']) > 40:
-                continue
-            
-            
-            # # 个股行业板块排名是否在前10(板块强度)
-            # result = is_top_industry(gp_row['stock_code'], (start_date).strftime("%Y%m%d"), gp_zt_arr, gp_zt_ph_arr)
-            # if result == False:
-            #     continue
-
-            # # 个股行业概念排名是否在前10(板块强度)
-            # result = is_hot_concept(gp_row['stock_code'], (start_date).strftime("%Y%m%d"), gp_zt_arr, gp_zt_ph_arr)
-            # if result == False:
-            #     continue
-
-            
-            
-            #取出每只股票30天的日线数据
-            prev_day = (start_date + timedelta(days=-30)).strftime("%Y-%m-%d") 
-            df = get_day_list(bs, gp_id, prev_day, now_day,
-                                "date,code,open,close,high,low,pctChg,volume")
-
-            if len(df) < 15:
-                continue
-
-
-            
-            # ================== 构造今日完整K线数据 ==========================
-            open_val = float(gp_row.get('open'))
-            close_val = float(gp_row.get('now'))          # 当前价作为今日 close
-            high_val = float(gp_row.get('high'))
-            low_val = float(gp_row.get('low'))
-            volume_val = int(gp_row.get('volume'))
-
-            # 计算 pctChg：基于昨日收盘
-            pct_chg_val = 0.0
-            if not df.empty:
-                last_close = float(df.iloc[-1]['close'])
-                if last_close > 0:
-                    pct_chg_val = (close_val / last_close - 1) * 100
-
-            # 构建今日记录（与 get_day_list 返回结构一致，含 Id）
-            today_record = {
-                'Id': len(df),  # 连续编号
-                'date': now_day,
-                'code': gp_id,
-                'open': open_val,
-                'close': close_val,
-                'high': high_val,
-                'low': low_val,
-                'pctChg': pct_chg_val,
-                'volume': volume_val
-            }
-
-            # 转为 DataFrame
-            today_df = pd.DataFrame([today_record])
-            # 拼接
-            df = pd.concat([df, today_df], ignore_index=True)
-
-                        
-            # #分时2分钟涨幅大于5%同时个股涨幅大于6%(分时直线拉升)
-            # result = mintun_zx_ls(gp_row, gp_row['stock_code'][2:],6,2,5)
-            # if result == False:
-            #     continue
-            
-            #均线
-            df['ma_orange_10'] = df['close'].rolling(10).mean()
-            df['ma_red_20'] = df['close'].rolling(20).mean()
-            df['ma_gray_60'] = df['close'].rolling(60).mean()
-
-            
-            #计算组合图形(日线背靠背图形)
-            check_touch_type_pure(bs, df, df.iloc[-1]['code'], '日线', gp_row)
-            
-
-            
-    except Exception as e:
-        print('get_threading_list()=>err:'+str(e))
-
-    return all_signals  # 👈 返回
-
-
-
-
-
-
-
-def check_big_main():
-    '''
-    监控个股大单,发现后发送邮箱
-    '''
-    # 假设你有一批想监控的股票
-    watch_list = ['002802','605162','000592','002418']
-
-    # 邮件配置（请替换为你的实际信息）
-    EMAIL_CONFIG = {
-        "to_emails": ["lcnjmq@qq.com"],  # 可多个
-        "sender_email": "lcnjmq@qq.com",
-        "sender_password": "crmnkqorabhecfeb",  # QQ邮箱16位授权码
-        "smtp_server": "smtp.qq.com",
-        "smtp_port": 465
-    }
+def get_kline_from_db(thscode, start_date, end_date):
+    """
+    从本地 DuckDB 获取指定股票的 K 线数据，返回 DataFrame
+    start_date, end_date: 字符串 "YYYY-MM-DD"
+    """
+    db_path = os.path.join(os.path.dirname(__file__), 'database', 'market.duckdb')
+    manager = DuckDBManager(db_path)  # 传入正确的路径
     
-    # 执行监控 + 自动发邮件
-    results = check_continuous_buy_blocks_per_stock_with_email(
-        watch_stocks=watch_list,
-        min_consecutive=10,
-        min_total_hands=30000,  #连续30000手大单
-        email_config=EMAIL_CONFIG
-    )
+    manager = DuckDBManager()
+    # 使用 query_data 获取数据（注意列名与策略要求一致）
+    # 策略需要列：date, open, close, high, low, volume, pctChg 等
+    # 我们数据库列名：trade_date, open_price, high_price, low_price, close_price, volume, pct_chg
+    df = manager.query_data(thscode=thscode, start_date=start_date, end_date=end_date, limit=10000)
+    manager.close()
+    if df.empty:
+        return df
+    # 重命名列以匹配策略期望的列名
+    df = df.rename(columns={
+        'trade_date': 'date',
+        'open_price': 'open',
+        'high_price': 'high',
+        'low_price': 'low',
+        'close_price': 'close',
+        'pct_chg': 'pctChg'   # 策略中可能用到 pctChg
+    })
+    # 确保日期为 datetime 类型
+    df['date'] = pd.to_datetime(df['date'])
+    return df
+
+
+def check_touch_type(df, symbol, time_type, gp_row):
+    """
+    检测组合图形（包含双U形、双炮台、龙虎突破等）
+    df: 包含 date, open, close, high, low, volume, pctChg 的 DataFrame
+    symbol: 股票代码（如 "000001.SZ"）
+    time_type: 周期类型（如 "日线"）
+    gp_row: 可传入股票当前行情数据（用于过滤或记录）
+    """
+    try:
+        pd.set_option('future.no_silent_downcasting', True)
+
+        # 获取模板数据（策略参数）
+        tactics_df = get_tactics_data('tactics', '日线')
+        if tactics_df.empty:
+            return
+
+        # 数据类型转换
+        df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(-1).astype(float)
+        df['open'] = df['open'].astype(float)
+        df['close'] = df['close'].astype(float)
+        df['high'] = df['high'].astype(float)
+        df['low'] = df['low'].astype(float)
+        df['date'] = pd.to_datetime(df['date'])
+
+        tactics_df['date'] = pd.to_datetime(tactics_df['date'], errors='coerce')
+        tactics_df['u形图形_内突_u_point'] = pd.to_datetime(tactics_df['u形图形_内突_u_point'], errors='coerce')
+        tactics_df['u形图形_内突_u_price'] = tactics_df['u形图形_内突_u_price'].astype(float)
+        tactics_df['u形图形_内突_u_bot_price'] = tactics_df['u形图形_内突_u_bot_price'].astype(float)
+        tactics_df['u形图形_内突_u_k_num'] = tactics_df['u形图形_内突_u_k_num'].astype(float)
+
+        data_entries = []
+
+        # 多线程执行各个策略检测
+        with ThreadPoolExecutor() as executor:
+            strategies = [
+                executor.submit(check_Double_U_双U形, df, symbol, time_type, tactics_df, gp_row),
+                # 如需启用其他策略，取消注释：
+                # executor.submit(check_bowl_shaped_双炮台, df, symbol, time_type, tactics_df, gp_row),
+                # executor.submit(check_Double_U_龙虎突破, df, symbol, time_type, tactics_df, gp_row),
+                # executor.submit(check_bowl_shaped_突破即回调, df, symbol, time_type, tactics_df, gp_row),
+                # executor.submit(check_bowl_shaped_碗形, df, symbol, time_type, tactics_df, gp_row),
+            ]
+
+            for future in as_completed(strategies):
+                result = future.result()
+                if result and isinstance(result, dict) and not all(pd.isnull(v) for v in result.values()):
+                    data_entries.append(result)
+
+        if data_entries:
+            new_data_df = pd.DataFrame(data_entries).replace('', np.nan)
+            filtered_data = new_data_df.dropna(how='all')
+            if not filtered_data.empty:
+                # 去重并保存
+                unique_columns = ['symbol', 'touch_type', 'time_type', 'direction', 
+                                  '小的_U形_u_price', '大的_U形_datetime']
+                df_unique = filtered_data.drop_duplicates(subset=unique_columns, keep='last')
+                print('✅ 发现新形态信号：')
+                print(df_unique)
+                save_shape_data(df_unique, '组合图形', 'symbol, time_type, touch_type')
+
+    except Exception as e:
+        print(f"❌ 策略检测出错: {e}")
+
+
+def check_touch_type_pure(df, symbol, time_type, gp_row):
+    """
+    检测纯K线图形（专用双炮台、仙人指路）
+    """
+    try:
+        pd.set_option('future.no_silent_downcasting', True)
+
+        df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(-1).astype(float)
+        df['open'] = df['open'].astype(float)
+        df['close'] = df['close'].astype(float)
+        df['high'] = df['high'].astype(float)
+        df['low'] = df['low'].astype(float)
+        df['date'] = pd.to_datetime(df['date'])
+
+        data_entries = []
+        with ThreadPoolExecutor() as executor:
+            strategies = [
+                # executor.submit(check_bowl_shaped_仙人指路, df, symbol, time_type, df, gp_row),
+                executor.submit(check_Double_U_双U形, df, symbol, time_type, df, gp_row),
+            ]
+            for future in as_completed(strategies):
+                result = future.result()
+                if result and isinstance(result, dict) and not all(pd.isnull(v) for v in result.values()):
+                    data_entries.append(result)
+
+        if data_entries:
+            new_data_df = pd.DataFrame(data_entries).replace('', np.nan)
+            filtered_data = new_data_df.dropna(how='all')
+            if not filtered_data.empty:
+                unique_columns = ['symbol', 'touch_type', 'time_type', 'direction']
+                df_unique = filtered_data.drop_duplicates(subset=unique_columns, keep='last')
+                print('✅ 发现纯K线信号：')
+                print(df_unique)
+                save_shape_data(df_unique, '组合图形', 'symbol, time_type, touch_type')
+
+    except Exception as e:
+        print(f"❌ 纯K线检测出错: {e}")
+
+
+    
+
+#===== 对单只股票执行策略检测 =====
+def run_strategy_on_stock(thscode, lookback_days=300, strategy_type='full'):
+    """
+    对单只股票执行策略检测
+    1. 先运行 inside_break 生成基础图形数据（保存到 tactics 表）
+    2. 再运行高级形态检测
+    """
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+
+    # 从本地数据库获取K线
+    df = get_kline_from_db(thscode, start_date, end_date)
+    if df.empty or len(df) < 30:
+        print(f"⚠️ {thscode} 数据不足")
+        return pd.DataFrame()  # 返回空DataFrame
+
+    # ✅ 添加 code 列（inside_break 需要）
+    df['code'] = thscode
+
+    # ✅ 执行基础图形检测（保存到 tactics 表）
+    inside_break(df, '日线')
+    print(f"✅ {thscode} 基础图形检测完成")
+
+    # 构建 gp_row（用于高级策略）
+    gp_row = {
+        'now': df.iloc[-1]['close'],
+        'stock_code': thscode.split('.')[0]
+    }
+
+    # 执行高级策略
+    if strategy_type == 'full':
+        return check_touch_type(df, thscode, '日线', gp_row)
+    elif strategy_type == 'pure':
+        return check_touch_type_pure(df, thscode, '日线', gp_row)
+    else:
+        return pd.DataFrame()
+
+
+
+#===== 对多只股票批量执行策略检测 =====
+def run_strategy_on_stock_list(thscode_list, lookback_days=300, strategy_type='full'):
+    """
+    对多只股票批量执行策略检测，返回检测到的信号DataFrame
+    """
+    all_signals = []
+    for thscode in thscode_list:
+        signals = run_strategy_on_stock(thscode, lookback_days, strategy_type)
+        if signals is not None and not signals.empty:
+            all_signals.append(signals)
+    if all_signals:
+        return pd.concat(all_signals, ignore_index=True)
+    else:
+        return pd.DataFrame()

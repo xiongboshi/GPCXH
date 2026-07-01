@@ -2,7 +2,7 @@ import pandas as pd
 # from A_DB.marketData import MarketDataDB
 # from Utils.存储csv数据 import save_tactics_to_csv
 
-from database.makedata import save_shape_data
+from database.shape_storage import save_shape_data
 
 def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
     """
