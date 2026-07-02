@@ -14,18 +14,20 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
     
     
     try:
+        # ========== 新增：按日期降序排列，最新K线在索引0 ==========
+        df = df.iloc[::-1].reset_index(drop=True)
         
-        df['high'] = df['high'].astype(float) 
-        df['low'] = df['low'].astype(float) 
-        df['close'] = df['close'].astype(float) 
+        df['high'] = df['high'].astype(float)
+        df['low'] = df['low'].astype(float)
+        df['close'] = df['close'].astype(float)
         df['close'] = df['close'].astype(float) 
         
         max_callback_arr_buy = [] # 存储符合条件的结果
         max_callback_arr_sell = []
         
-        # 对前面1300的每一个数据进行检查,现在是计算自身长度
-        all_k_num = int(len(df) * 0.6)
-        zc_k_num = int(len(df) * 0.38)  #支撑查看k线数
+        # 对前面300的每一个数据进行检查,现在是计算自身长度
+        all_k_num = int(len(df) * 0.7)
+        zc_k_num = int(len(df) * 0.28)  #支撑查看k线数
             
         # 获取最后一根K线的收盘价
         last_row_close = df['close'].iloc[-1]
@@ -39,7 +41,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
         look_k_num = 6
         
         
-        # 对前面1300的每一个数据进行检查
+        # 对前面300的每一个数据进行检查
         for i in range(all_k_num):
             
             # 确保我们查询的历史数据足够（维持距最后一根K线至少60根线的距离）
@@ -136,7 +138,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
                     # 空头判断的额外条件
                     min_deviation_short = (range_of_interest - prev_row_low).min()  # 计算区间内与U形前高点的close价格之差的最小值
                     # 空头条件：90%以上的价格需要大于等于最后一根K线的close价格
-                    if short_condition >= 0.9 and min_deviation_short >= -1.0:
+                    if short_condition >= 0.8 and min_deviation_short >= -1.0:
                         # 最后一根与当前i根线之间的区间数据
                         range_of_interest = df['high'].iloc[-i - 1:-1]  
                         max_price_within_range = range_of_interest.max()  # 空头情况：取U最高价
@@ -164,7 +166,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
                                 # is_zc = (now_row_low - prev_row_low) / (max_price_within_range - prev_row_low) >= 0.3
                                 #支持
                                 if prev_row_low != max_price_within_range:  # 除数不为零
-                                    is_zc = (now_row_high - prev_row_low) / (max_price_within_range - prev_row_low) >= 0.5
+                                    is_zc = (now_row_high - prev_row_low) / (max_price_within_range - prev_row_low) >= 0.9
                                 else:
                                     continue
                                 
@@ -172,7 +174,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
                                     
                                     # 当前价格在U图形的的位置
                                     ratio = (max_price_within_range - last_row_close) / (max_price_within_range - prev_row_low)
-                                    if ratio >= 0.5:
+                                    if ratio >= 0.3:
                                         
                                         max_price_within_range = df['high'].iloc[max_price_idx]  #最高价格
                                             
@@ -196,8 +198,8 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
             
             
             
-        # 将结果列表转换为 DataFrame 并去重,用于1分钟的数据存储
-        if len(max_callback_arr_buy) >= 2:
+        # 将结果列表转换为 DataFrame 并去重
+        if len(max_callback_arr_buy) >= 0:
             max_callback_df = pd.DataFrame(max_callback_arr_buy)
             columns_to_check = [
                 'symbol',

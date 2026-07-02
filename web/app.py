@@ -8,14 +8,11 @@ from flask import Flask, render_template, jsonify, request
 import duckdb
 import pandas as pd
 import subprocess
-import os
 from datetime import datetime, timedelta
 
-# 项目根目录
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, 'database', 'market.duckdb')
-
 
 def get_db():
     return duckdb.connect(DB_PATH)
@@ -63,13 +60,9 @@ def get_kline():
         r['trade_date'] = str(r['trade_date'])
     return jsonify(records)
 
-# ===== 修改：涨停股票识别（排除当天） =====
 @app.route('/api/limit_up_stocks')
 def get_limit_up_stocks():
-    """获取最近12个交易日内有涨停的股票列表（排除今天涨停）"""
     db = get_db()
-    
-    # 1. 获取最近12个交易日的日期
     date_sql = """
         SELECT DISTINCT trade_date 
         FROM daily_quotes 
@@ -80,11 +73,8 @@ def get_limit_up_stocks():
     if dates_df.empty:
         db.close()
         return jsonify({'stocks': [], 'dates': []})
-    
     date_list = dates_df['trade_date'].tolist()
     date_str = "', '".join([str(d) for d in date_list])
-    
-    # 2. 查询这些日期中涨跌幅 >= 9.8 的股票（涨停），并排除今天
     sql = f"""
         WITH limit_up AS (
             SELECT 
@@ -96,7 +86,7 @@ def get_limit_up_stocks():
             FROM daily_quotes
             WHERE trade_date IN ('{date_str}')
               AND pct_chg >= 9.8
-              AND trade_date != CURRENT_DATE   -- ✅ 排除今天涨停
+              AND trade_date != CURRENT_DATE
         )
         SELECT 
             lu.thscode,
@@ -111,26 +101,20 @@ def get_limit_up_stocks():
     """
     df = db.execute(sql).df()
     db.close()
-    
     if df.empty:
         return jsonify({'stocks': [], 'dates': date_list})
-    
     records = df.to_dict(orient='records')
     for r in records:
         r['trade_date'] = str(r['trade_date'])
-    
     return jsonify({'stocks': records, 'dates': [str(d) for d in date_list]})
 
 @app.route('/api/kline_with_marker')
 def get_kline_with_marker():
-    """获取K线数据并标记涨停位置"""
     code = request.args.get('code')
     limit = request.args.get('limit', 500, type=int)
     if not code:
         return jsonify({'error': '缺少code参数'}), 400
-    
     db = get_db()
-    # 获取K线数据
     sql = """
         SELECT trade_date, open_price, high_price, low_price, close_price, volume, pct_chg
         FROM daily_quotes
@@ -142,24 +126,20 @@ def get_kline_with_marker():
     if df.empty:
         db.close()
         return jsonify({'error': '无数据'}), 404
-    
-    # 获取涨停标记（最近12天内，排除今天）
     marker_sql = """
         SELECT trade_date, close_price, pct_chg
         FROM daily_quotes
         WHERE thscode = ?
           AND pct_chg >= 9.8
           AND trade_date >= (SELECT MAX(trade_date) - INTERVAL 12 DAY FROM daily_quotes)
-          AND trade_date != CURRENT_DATE   -- ✅ 排除今天
+          AND trade_date != CURRENT_DATE
         ORDER BY trade_date
     """
     markers_df = db.execute(marker_sql, [code]).df()
     db.close()
-    
     records = df.to_dict(orient='records')
     for r in records:
         r['trade_date'] = str(r['trade_date'])
-    
     markers = []
     if not markers_df.empty:
         for _, row in markers_df.iterrows():
@@ -168,25 +148,17 @@ def get_kline_with_marker():
                 'price': float(row['close_price']),
                 'pct_chg': float(row['pct_chg'])
             })
-    
     return jsonify({'data': records, 'markers': markers})
 
-
-# ===== 策略检测接口 =====
 @app.route('/api/run_strategy', methods=['POST'])
 def run_strategy():
-    """
-    执行策略检测
-    """
     try:
         data = request.get_json()
         strategy_type = data.get('strategy_type', 'full')
         stock_list = data.get('stock_list', None)
 
-        # 如果未提供股票列表，则获取当前涨停股票（排除今天）
         if not stock_list:
             db = get_db()
-            # 直接查询涨停股票代码
             date_sql = """
                 SELECT DISTINCT trade_date 
                 FROM daily_quotes 
@@ -220,7 +192,6 @@ def run_strategy():
         if not stock_list:
             return jsonify({'success': False, 'message': '没有可检测的股票'}), 400
 
-        # 执行策略
         result_df = amount.run_strategy_on_stock_list(stock_list, lookback_days=300, strategy_type=strategy_type)
 
         if result_df.empty:
@@ -237,8 +208,105 @@ def run_strategy():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'message': f'策略执行异常: {str(e)}'}), 500
-    
 
+@app.route('/api/tactics')
+def get_tactics():
+    db = get_db()
+    try:
+        tables = db.execute("SHOW TABLES").df()
+        if 'tactics' not in tables['name'].values:
+            db.close()
+            return jsonify([])
+        df = db.execute("""
+            SELECT symbol, date, direction, u形图形_内突_u_point, u形图形_内突_u_price,
+                   u形图形_内突_u_bot_price, u形图形_内突_u_top_price, time_type
+            FROM tactics
+            ORDER BY date DESC
+        """).df()
+        db.close()
+        if df.empty:
+            return jsonify([])
+        records = df.to_dict(orient='records')
+        for r in records:
+            for col in ['date', 'u形图形_内突_u_point']:
+                if r.get(col) is not None:
+                    r[col] = str(r[col])
+        return jsonify(records)
+    except Exception as e:
+        print(f"❌ /api/tactics 异常: {e}")
+        db.close()
+        return jsonify([])
+
+@app.route('/api/kline_with_tactics')
+def get_kline_with_tactics():
+    code = request.args.get('code')
+    limit = request.args.get('limit', 500, type=int)
+    date_point = request.args.get('date_point')
+    u_point = request.args.get('u_point')
+    if not code:
+        return jsonify({'error': '缺少code参数'}), 400
+
+    db = get_db()
+    try:
+        sql = """
+            SELECT trade_date, open_price, high_price, low_price, close_price, volume, pct_chg
+            FROM daily_quotes
+            WHERE thscode = ?
+            ORDER BY trade_date ASC
+            LIMIT ?
+        """
+        df = db.execute(sql, [code, limit]).df()
+        if df.empty:
+            db.close()
+            return jsonify({'error': '无数据'}), 404
+
+        markers = []
+        if date_point:
+            date_df = db.execute("""
+                SELECT close_price FROM daily_quotes
+                WHERE thscode = ? AND trade_date = ?
+            """, [code, date_point]).df()
+            if not date_df.empty:
+                markers.append({
+                    'trade_date': date_point,
+                    'price': float(date_df.iloc[0]['close_price']),
+                    'type': 'date',
+                    'label': '策略日'
+                })
+        if u_point:
+            u_df = db.execute("""
+                SELECT close_price FROM daily_quotes
+                WHERE thscode = ? AND trade_date = ?
+            """, [code, u_point]).df()
+            if not u_df.empty:
+                markers.append({
+                    'trade_date': u_point,
+                    'price': float(u_df.iloc[0]['close_price']),
+                    'type': 'u_point',
+                    'label': 'U形点'
+                })
+
+        db.close()
+        records = df.to_dict(orient='records')
+        for r in records:
+            r['trade_date'] = str(r['trade_date'])
+
+        return jsonify({'data': records, 'markers': markers})
+    except Exception as e:
+        db.close()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clear_tactics', methods=['POST'])
+def clear_tactics():
+    """清空 tactics 表"""
+    db = get_db()
+    try:
+        db.execute("DELETE FROM tactics")
+        db.close()
+        return jsonify({'success': True, 'message': 'tactics 表已清空'})
+    except Exception as e:
+        db.close()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ========== 后台维护接口 ==========
 def run_script(script_path, input_text, timeout=300):
