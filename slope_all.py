@@ -1,7 +1,7 @@
 import pandas as pd
 from database.shape_storage import save_shape_data
 
-def inside_break_all(df: pd.DataFrame, time_type, num_check_points=200):
+def inside_break_all(df: pd.DataFrame, time_type, num_check_points=150):
     """
     内突破（多基准点版本）
     从最新K线开始，向前逐根移动基准点，检测每个基准点是否构成U形。
@@ -150,13 +150,13 @@ def inside_break_all(df: pd.DataFrame, time_type, num_check_points=200):
 
 
         # ========== 保存结果（去重） ==========
-        if len(max_callback_arr_buy) > 0:
+        if len(max_callback_arr_buy) > 2:
             max_callback_df = pd.DataFrame(max_callback_arr_buy)
             columns_to_check = ['symbol', 'time_type', 'direction', 'u形图形_内突_u_price', 'u形图形_内突_u_bot_price', 'u形图形_内突_u_top_price']
             drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='last')
             save_shape_data(pd.DataFrame(drop_callback_df), 'tactics', columns_dp)
 
-        if len(max_callback_arr_sell) > 0:
+        if len(max_callback_arr_sell) > 2:
             max_callback_df = pd.DataFrame(max_callback_arr_sell)
             columns_to_check = ['symbol', 'time_type', 'direction', 'u形图形_内突_u_price', 'u形图形_内突_u_bot_price', 'u形图形_内突_u_top_price']
             drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='last')

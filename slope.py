@@ -199,7 +199,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
             
             
         # 将结果列表转换为 DataFrame 并去重
-        if len(max_callback_arr_buy) >= 0:
+        if len(max_callback_arr_buy) >= 2:
             max_callback_df = pd.DataFrame(max_callback_arr_buy)
             columns_to_check = [
                 'symbol',
@@ -214,7 +214,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
             save_shape_data(pd.DataFrame(drop_callback_df),'tactics', columns_dp)
         
         
-        if len(max_callback_arr_sell) > 0:
+        if len(max_callback_arr_sell) > 2:
             max_callback_df = pd.DataFrame(max_callback_arr_sell)
             columns_to_check = [
                 'symbol',

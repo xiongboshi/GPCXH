@@ -494,7 +494,7 @@
         <!-- 涨停列表区域 -->
         <div id="limitUpArea" class="hidden">
             <div class="header-row">
-                <span>📈 最近12天涨T</span>
+                <span>📈 最近12天涨T <span id="limitUpTotal" style="margin-left: 15px; color: #f0b90b; font-weight: normal;">总数: 0</span></span>
                 <button class="btn btn-sm btn-secondary" id="btnCloseLimitUp">✕ 关闭</button>
             </div>
             <div style="max-height:300px; overflow-y:auto;">
@@ -535,6 +535,7 @@
                             <th>方向</th>
                             <th>U形点</th>
                             <th>价格</th>
+                            <th>U背价格</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -753,6 +754,8 @@
                 .then(res => res.json())
                 .then(data => {
                     const stocks = data.stocks || [];
+                    // 更新总股数
+                    document.getElementById('limitUpTotal').textContent = '总数: ' + stocks.length;
                     limitUpTableBody.innerHTML = '';
                     if (stocks.length === 0) {
                         limitUpTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6a7a8e;padding:20px;">最近12天无涨停股票</td></tr>';
@@ -1088,19 +1091,27 @@
                             tr.dataset.symbol = item.symbol;
                             tr.dataset.date = item.date;
                             tr.dataset.upoint = item.u形图形_内突_u_point || '';
+                            // 计算U背价格
+                            let uBackPrice = '';
+                            if (item.direction === '买') {
+                                uBackPrice = item.u形图形_内突_u_bot_price ?? '';
+                            } else if (item.direction === '卖') {
+                                uBackPrice = item.u形图形_内突_u_top_price ?? '';
+                            }
                             tr.addEventListener('click', function () {
                                 document.querySelectorAll('#tacticsTableBody tr').forEach(row => row.classList.remove('selected'));
                                 this.classList.add('selected');
                                 loadKlineWithTactics(this);
                             });
                             tr.innerHTML = `
-                        <td>${item.symbol}</td>
-                        <td>${item.date}</td>
-                        <td>${item.direction}</td>
-                        <td>${item.u形图形_内突_u_point || ''}</td>
-                        <td>${item.u形图形_内突_u_price}</td>
-                        <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
-                    `;
+                                <td>${item.symbol}</td>
+                                <td>${item.date}</td>
+                                <td>${item.direction}</td>
+                                <td>${item.u形图形_内突_u_point || ''}</td>
+                                <td>${item.u形图形_内突_u_price}</td>
+                                <td>${uBackPrice}</td>
+                                <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+                            `;
                             tacticsTableBody.appendChild(tr);
                         });
                         tacticsSearchInput.dispatchEvent(new Event('input'));
