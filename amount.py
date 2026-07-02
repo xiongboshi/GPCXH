@@ -18,6 +18,7 @@ from database.db_manager import DuckDBManager
 
 # ✅ 导入 inside_break（基础图形检测）
 from slope import inside_break
+from slope_all import inside_break_all
 
 
 def get_kline_from_db(thscode, start_date, end_date):
@@ -206,5 +207,80 @@ def run_strategy_on_stock_list(thscode_list, lookback_days=300, strategy_type='f
             all_signals.append(signals)
     if all_signals:
         return pd.concat(all_signals, ignore_index=True)
+    else:
+        return pd.DataFrame()
+    
+
+
+
+
+
+from concurrent.futures import ThreadPoolExecutor
+
+# 原有的 run_strategy_on_stock_all 保持不变（它调用 inside_break_all）
+def run_strategy_on_stock_parallel(thscode, lookback_days=300, strategy_type='full'):
+    """单只股票策略检测的包装函数（用于多线程）"""
+    return run_strategy_on_stock_all(thscode, lookback_days, strategy_type)
+
+def run_strategy_on_stock_list_parallel(thscode_list, lookback_days=300, strategy_type='full', num_workers=8):
+    """
+    多线程并行执行策略检测，返回检测到的信号DataFrame
+    使用 ThreadPoolExecutor 避免进程级文件锁冲突
+    """
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        # 提交所有任务
+        futures = {
+            executor.submit(run_strategy_on_stock_parallel, thscode, lookback_days, strategy_type): thscode
+            for thscode in thscode_list
+        }
+        results = []
+        for future in futures:
+            try:
+                res = future.result(timeout=60)  # 单只股票超时60秒
+                if res is not None and not res.empty:
+                    results.append(res)
+            except Exception as e:
+                print(f"❌ 处理股票 {futures[future]} 时出错: {e}")
+    if results:
+        return pd.concat(results, ignore_index=True)
+    else:
+        return pd.DataFrame()
+    
+
+
+#===== 对单只股票执行策略检测 多线程 =====
+def run_strategy_on_stock_all(thscode, lookback_days=300, strategy_type='full'):
+    """
+    对单只股票执行策略检测
+    1. 先运行 inside_break 生成基础图形数据（保存到 tactics 表）
+    2. 再运行高级形态检测
+    """
+    end_date = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+
+    # 从本地数据库获取K线
+    df = get_kline_from_db(thscode, start_date, end_date)
+    if df.empty or len(df) < 30:
+        print(f"⚠️ {thscode} 数据不足")
+        return pd.DataFrame()  # 返回空DataFrame
+
+    # ✅ 添加 code 列（inside_break 需要）
+    df['code'] = thscode
+
+    # ✅ 执行基础图形检测（保存到 tactics 表）
+    inside_break_all(df, '日线')
+    print(f"✅ {thscode} 基础图形检测完成")
+
+    # 构建 gp_row（用于高级策略）
+    gp_row = {
+        'now': df.iloc[-1]['close'],
+        'stock_code': thscode.split('.')[0]
+    }
+
+    # 执行高级策略
+    if strategy_type == 'full':
+        return check_touch_type(df, thscode, '日线', gp_row)
+    elif strategy_type == 'pure':
+        return check_touch_type_pure(df, thscode, '日线', gp_row)
     else:
         return pd.DataFrame()

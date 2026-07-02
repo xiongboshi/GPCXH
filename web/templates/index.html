@@ -257,6 +257,7 @@
             color: #e0e0e0;
             font-size: 13px;
         }
+
         #tacticsSearchInput:focus {
             outline: none;
             border-color: #f0b90b;
@@ -347,9 +348,11 @@
             cursor: pointer;
             transition: background 0.2s;
         }
+
         #tacticsTableBody tr:hover {
             background: #1a2332;
         }
+
         #tacticsTableBody tr.selected {
             background: #2a3a4a;
             border-left: 3px solid #f0b90b;
@@ -452,21 +455,40 @@
                 <label>&nbsp;</label>
                 <button class="btn" id="queryBtn">🔍 查询</button>
             </div>
+
+        </div>
+
+        <div class="controls">
+
             <div class="group" style="flex:0.5;min-width:80px;">
                 <label>&nbsp;</label>
                 <button class="btn btn-secondary" id="btnLimitUp">📈涨T数据</button>
             </div>
+
             <div class="group" style="flex:0.5;min-width:120px;">
-                <label>📊策略</label>
-                <select id="strategySelect">
-                    <option value="full">双U形</option>
-                    <!-- <option value="pure">仙人指路</option> -->
-                </select>
+                <label>📌 单股基础U形</label>
+                <input type="text" id="singleStockInput" placeholder="000060.SZ" style="width:100%;">
             </div>
             <div class="group" style="flex:0.5;min-width:80px;">
                 <label>&nbsp;</label>
-                <button class="btn btn-secondary" id="btnRunStrategy">🚀策略</button>
+                <button class="btn btn-secondary" id="btnRunSingleStock">🔍单股检测</button>
             </div>
+
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" id="btnRunStrategy">基础U形(新)</button>
+            </div>
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" id="btnRunStrategyParallel">基础U形(多线)</button>
+            </div>
+            <!-- <div class="group" style="flex:0.5;min-width:120px;">
+                <label>📊策略</label>
+                <select id="strategySelect">
+                    <option value="full">双U形</option>
+                    <option value="pure">双炮台</option>
+                </select>
+            </div> -->
         </div>
 
         <!-- 涨停列表区域 -->
@@ -501,7 +523,8 @@
             <!-- 搜索框 -->
             <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
                 <input type="text" id="tacticsSearchInput" placeholder="🔍 搜索股票代码..." style="flex: 1;">
-                <button class="btn btn-sm btn-secondary" id="btnClearTacticsSearch" style="padding: 6px 16px;">✕ 清除</button>
+                <button class="btn btn-sm btn-secondary" id="btnClearTacticsSearch" style="padding: 6px 16px;">✕
+                    清除</button>
             </div>
             <div style="max-height:300px; overflow-y:auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:13px;">
@@ -813,7 +836,8 @@
 
         btnRunStrategy.addEventListener('click', function () {
             const btn = this;
-            const strategyType = document.getElementById('strategySelect').value;
+            // const strategyType = document.getElementById('strategySelect').value;
+            const strategyType = '';
 
             // 如果列表已显示，则切换隐藏
             if (!tacticsArea.classList.contains('hidden')) {
@@ -903,6 +927,197 @@
                     btn.textContent = '🚀 策略';
                 });
         });
+
+
+        document.getElementById('btnRunStrategyParallel').addEventListener('click', function () {
+            const btn = this;
+            const strategyType = document.getElementById('strategySelect').value;
+
+            // 如果列表已显示，则切换隐藏（与单线程共用同一个列表区域）
+            if (!tacticsArea.classList.contains('hidden')) {
+                tacticsArea.classList.add('hidden');
+                return;
+            }
+
+            // 步骤1：清空 tactics 表
+            appendLog('🗑️ 清空策略表...', 'info');
+            btn.disabled = true;
+            btn.textContent = '⏳ 清空中...';
+
+            fetch('/api/clear_tactics', { method: 'POST' })
+                .then(res => res.json())
+                .then(clearResult => {
+                    if (!clearResult.success) {
+                        throw new Error(clearResult.error || '清空失败');
+                    }
+                    appendLog('✅ 策略表已清空', 'success');
+
+                    // 步骤2：执行多线程策略检测
+                    appendLog('🚀 开始执行多线程策略检测...', 'info');
+                    btn.textContent = '⏳ 计算中(多线程)...';
+                    return fetch('/api/run_strategy_parallel', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ strategy_type: strategyType, num_workers: 8 })
+                    });
+                })
+                .then(res => res.json())
+                .then(strategyResult => {
+                    if (!strategyResult.success) {
+                        throw new Error(strategyResult.message || '策略执行失败');
+                    }
+                    appendLog(`✅ 多线程策略检测完成，发现 ${strategyResult.count || 0} 个信号`, 'success');
+
+                    // 步骤3：加载策略列表
+                    appendLog('📋 加载策略列表...', 'info');
+                    btn.textContent = '⏳ 加载列表...';
+                    return fetch('/api/tactics');
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(data => {
+                    if (!Array.isArray(data)) data = [];
+                    tacticsTableBody.innerHTML = '';
+                    tacticsSearchInput.value = '';
+                    if (data.length === 0) {
+                        tacticsTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6a7a8e;padding:20px;">暂无策略数据</td></tr>';
+                    } else {
+                        data.forEach(item => {
+                            const tr = document.createElement('tr');
+                            tr.dataset.symbol = item.symbol;
+                            tr.dataset.date = item.date;
+                            tr.dataset.upoint = item.u形图形_内突_u_point || '';
+                            tr.addEventListener('click', function () {
+                                document.querySelectorAll('#tacticsTableBody tr').forEach(row => row.classList.remove('selected'));
+                                this.classList.add('selected');
+                                loadKlineWithTactics(this);
+                            });
+                            tr.innerHTML = `
+                        <td>${item.symbol}</td>
+                        <td>${item.date}</td>
+                        <td>${item.direction}</td>
+                        <td>${item.u形图形_内突_u_point || ''}</td>
+                        <td>${item.u形图形_内突_u_price}</td>
+                        <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+                    `;
+                            tacticsTableBody.appendChild(tr);
+                        });
+                        tacticsSearchInput.dispatchEvent(new Event('input'));
+                    }
+                    tacticsArea.classList.remove('hidden');
+                    appendLog(`✅ 策略列表已加载，共 ${data.length} 条`, 'success');
+                    btn.disabled = false;
+                    btn.textContent = '🚀策略(多)';
+                })
+                .catch(err => {
+                    appendLog(`❌ 操作失败: ${err.message}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🚀策略(多)';
+                });
+        });
+
+
+
+        document.getElementById('btnRunSingleStock').addEventListener('click', function () {
+            const codeInput = document.getElementById('singleStockInput').value.trim();
+            if (!codeInput) {
+                appendLog('❌ 请输入代码', 'error');
+                return;
+            }
+            const btn = this;
+
+            // 如果列表已显示，则切换隐藏
+            if (!tacticsArea.classList.contains('hidden')) {
+                tacticsArea.classList.add('hidden');
+                return;
+            }
+
+            // 步骤1：清空 tactics 表
+            appendLog('🗑️ 清空策略表...', 'info');
+            btn.disabled = true;
+            btn.textContent = '⏳ 清空中...';
+
+            fetch('/api/clear_tactics', { method: 'POST' })
+                .then(res => res.json())
+                .then(clearResult => {
+                    if (!clearResult.success) {
+                        throw new Error(clearResult.error || '清空失败');
+                    }
+                    appendLog('✅ 策略表已清空', 'success');
+
+                    // 步骤2：执行单股策略检测（使用多线程接口，但只传单只股票）
+                    appendLog(`🚀 开始执行单股策略检测: ${codeInput} (多基准点)`, 'info');
+                    btn.textContent = '⏳ 计算中...';
+                    return fetch('/api/run_strategy_parallel', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            strategy_type: 'full',   // 默认双U形，如需切换可恢复策略选择框
+                            stock_list: [codeInput],
+                            num_workers: 4           // 单股无需太多线程，但保持接口一致
+                        })
+                    });
+                })
+                .then(res => res.json())
+                .then(strategyResult => {
+                    if (!strategyResult.success) {
+                        throw new Error(strategyResult.message || '策略执行失败');
+                    }
+                    appendLog(`✅ 单股策略检测完成，发现 ${strategyResult.count || 0} 个信号`, 'success');
+
+                    // 步骤3：加载策略列表
+                    appendLog('📋 加载策略列表...', 'info');
+                    btn.textContent = '⏳ 加载列表...';
+                    return fetch('/api/tactics');
+                })
+                .then(res => {
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(data => {
+                    if (!Array.isArray(data)) data = [];
+                    tacticsTableBody.innerHTML = '';
+                    tacticsSearchInput.value = '';
+                    if (data.length === 0) {
+                        tacticsTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6a7a8e;padding:20px;">暂无策略数据</td></tr>';
+                    } else {
+                        data.forEach(item => {
+                            const tr = document.createElement('tr');
+                            tr.dataset.symbol = item.symbol;
+                            tr.dataset.date = item.date;
+                            tr.dataset.upoint = item.u形图形_内突_u_point || '';
+                            tr.addEventListener('click', function () {
+                                document.querySelectorAll('#tacticsTableBody tr').forEach(row => row.classList.remove('selected'));
+                                this.classList.add('selected');
+                                loadKlineWithTactics(this);
+                            });
+                            tr.innerHTML = `
+                        <td>${item.symbol}</td>
+                        <td>${item.date}</td>
+                        <td>${item.direction}</td>
+                        <td>${item.u形图形_内突_u_point || ''}</td>
+                        <td>${item.u形图形_内突_u_price}</td>
+                        <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+                    `;
+                            tacticsTableBody.appendChild(tr);
+                        });
+                        tacticsSearchInput.dispatchEvent(new Event('input'));
+                    }
+                    tacticsArea.classList.remove('hidden');
+                    appendLog(`✅ 策略列表已加载，共 ${data.length} 条`, 'success');
+                    btn.disabled = false;
+                    btn.textContent = '🔍 单股检测';
+                })
+                .catch(err => {
+                    appendLog(`❌ 操作失败: ${err.message}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔍 单股检测';
+                });
+        });
+
+
 
         btnCloseTactics.addEventListener('click', function () {
             tacticsArea.classList.add('hidden');
@@ -1037,26 +1252,36 @@
                 },
                 dataZoom: [
                     { type: 'inside', start: 0, end: 100, minSpan: 5, maxSpan: 100 },
-                    { type: 'slider', start: 0, end: 100, minSpan: 5, maxSpan: 100, height: 20, bottom: 5,
+                    {
+                        type: 'slider', start: 0, end: 100, minSpan: 5, maxSpan: 100, height: 20, bottom: 5,
                         borderColor: '#1a2332', fillerColor: 'rgba(240,185,11,0.15)',
-                        handleStyle: { color: '#f0b90b' }, textStyle: { color: '#6a7a8e' }, xAxisIndex: [0, 1] }
+                        handleStyle: { color: '#f0b90b' }, textStyle: { color: '#6a7a8e' }, xAxisIndex: [0, 1]
+                    }
                 ],
                 grid: [
                     { left: '6%', right: '6%', top: '8%', height: '58%' },
                     { left: '6%', right: '6%', top: '70%', height: '18%' }
                 ],
                 xAxis: [
-                    { type: 'category', data: dates, scale: true,
+                    {
+                        type: 'category', data: dates, scale: true,
                         axisLabel: { color: '#6a7a8e', interval: Math.floor(dates.length / 20) },
-                        axisLine: { lineStyle: { color: '#1a2332' } }, gridIndex: 0 },
-                    { type: 'category', data: dates, scale: true,
-                        axisLabel: { show: false }, axisLine: { show: false }, gridIndex: 1 }
+                        axisLine: { lineStyle: { color: '#1a2332' } }, gridIndex: 0
+                    },
+                    {
+                        type: 'category', data: dates, scale: true,
+                        axisLabel: { show: false }, axisLine: { show: false }, gridIndex: 1
+                    }
                 ],
                 yAxis: [
-                    { scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
-                        axisLabel: { color: '#6a7a8e' }, gridIndex: 0 },
-                    { scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
-                        axisLabel: { color: '#6a7a8e' }, gridIndex: 1, min: 0, max: maxVolume * 1.2 }
+                    {
+                        scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' }, gridIndex: 0
+                    },
+                    {
+                        scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' }, gridIndex: 1, min: 0, max: maxVolume * 1.2
+                    }
                 ],
                 series: [{
                     name: 'K线',
@@ -1077,7 +1302,7 @@
                         itemStyle: { color: '#f0b90b' },
                         label: {
                             show: true,
-                            formatter: function(params) { return params.data.label; },
+                            formatter: function (params) { return params.data.label; },
                             color: '#fff',
                             fontSize: 10,
                             fontWeight: 'bold',
@@ -1092,7 +1317,7 @@
                     yAxisIndex: 1,
                     barWidth: '60%',
                     itemStyle: {
-                        color: function(params) {
+                        color: function (params) {
                             const idx = params.dataIndex;
                             return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
                         }

@@ -307,6 +307,83 @@ def clear_tactics():
     except Exception as e:
         db.close()
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+
+
+
+@app.route('/api/run_strategy_parallel', methods=['POST'])
+def run_strategy_parallel():
+    """
+    多线程并行执行策略检测
+    """
+    try:
+        data = request.get_json()
+        strategy_type = data.get('strategy_type', 'full')
+        stock_list = data.get('stock_list', None)
+        num_workers = data.get('num_workers', 8)   # 可从前端传入
+
+        if not stock_list:
+            # 获取涨停股票列表（同原逻辑）
+            db = get_db()
+            date_sql = """
+                SELECT DISTINCT trade_date 
+                FROM daily_quotes 
+                ORDER BY trade_date DESC 
+                LIMIT 12
+            """
+            dates_df = db.execute(date_sql).df()
+            if dates_df.empty:
+                db.close()
+                return jsonify({'success': False, 'message': '没有交易日数据'}), 400
+            date_list = dates_df['trade_date'].tolist()
+            date_str = "', '".join([str(d) for d in date_list])
+            sql = f"""
+                WITH limit_up AS (
+                    SELECT 
+                        thscode,
+                        ROW_NUMBER() OVER (PARTITION BY thscode ORDER BY trade_date DESC) as rn
+                    FROM daily_quotes
+                    WHERE trade_date IN ('{date_str}')
+                      AND pct_chg >= 9.8
+                      AND trade_date != CURRENT_DATE
+                )
+                SELECT thscode
+                FROM limit_up
+                WHERE rn = 1
+            """
+            df = db.execute(sql).df()
+            db.close()
+            stock_list = df['thscode'].tolist() if not df.empty else []
+
+        if not stock_list:
+            return jsonify({'success': False, 'message': '没有可检测的股票'}), 400
+
+        # 执行并行策略
+        result_df = amount.run_strategy_on_stock_list_parallel(
+            stock_list,
+            lookback_days=300,
+            strategy_type=strategy_type,
+            num_workers=num_workers
+        )
+
+        if result_df.empty:
+            return jsonify({'success': True, 'signals': [], 'count': 0, 'message': '未检测到信号'})
+        else:
+            signals = result_df.to_dict(orient='records')
+            for s in signals:
+                for k, v in s.items():
+                    if isinstance(v, pd.Timestamp):
+                        s[k] = v.strftime('%Y-%m-%d')
+            return jsonify({'success': True, 'signals': signals, 'count': len(signals)})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'策略执行异常: {str(e)}'}), 500
+    
+
+
+
 
 # ========== 后台维护接口 ==========
 def run_script(script_path, input_text, timeout=300):
