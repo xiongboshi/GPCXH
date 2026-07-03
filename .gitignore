@@ -1,1 +1,2 @@
 "database/market.duckdb" 
+"database/*.duckdb" 
