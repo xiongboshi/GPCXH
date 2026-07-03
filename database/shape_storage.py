@@ -19,9 +19,10 @@ class ShapeStorage:
         return duckdb.connect(self.db_path)
 
     def _init_tables(self):
-        """创建表（如果不存在），id 自增，同时保留业务唯一约束"""
+        """创建表（如果不存在）"""
         conn = self._get_conn()
         try:
+            # 1. tactics 表（不变）
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS tactics (
                     id INTEGER PRIMARY KEY,
@@ -44,28 +45,56 @@ class ShapeStorage:
             """)
             print("✅ tactics 表已就绪 (id自增 + 唯一索引)")
 
+            # 2. tactics_zhtx 表（复合主键，无自增列）
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS tactics_zhtx (
-                    id INTEGER PRIMARY KEY,
+                    date DATE,
                     symbol VARCHAR,
                     touch_type VARCHAR,
                     time_type VARCHAR,
                     direction VARCHAR,
+                    小的_U形_datetime DATE,
+                    小的_U形_point_time DATE,
+                    小的_U形_u_price DOUBLE,
+                    小的_U形_n_price DOUBLE,
+                    小的_U形_k_num DOUBLE,
+                    大的_U形_datetime DATE,
+                    大的_U形_point_time DATE,
+                    大的_U形_u_price DOUBLE,
+                    大的_U形_n_price DOUBLE,
+                    大的_U形_k_num DOUBLE,
                     tp_time DATE,
                     ht_time DATE,
-                    小的_U形_u_price DOUBLE,
-                    大的_U形_datetime DATE,
-                    signal_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    signal_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (symbol, touch_type, time_type, direction)
                 )
             """)
-            conn.execute("""
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_tactics_zhtx_unique 
-                ON tactics_zhtx (symbol, touch_type, time_type, direction)
-            """)
-            print("✅ tactics_zhtx 表已就绪 (id自增 + 唯一索引)")
+            print("✅ tactics_zhtx 表已就绪 (复合主键)")
 
         except Exception as e:
             print(f"❌ 表初始化失败: {e}")
+        finally:
+            conn.close()
+
+    def drop_combined_table(self):
+        """删除 tactics_zhtx 表（用于重置结构）"""
+        conn = self._get_conn()
+        try:
+            conn.execute("DROP TABLE IF EXISTS tactics_zhtx")
+            print("✅ 已删除 tactics_zhtx 表")
+        except Exception as e:
+            print(f"❌ 删除表失败: {e}")
+        finally:
+            conn.close()
+
+    def clear_combined_table(self):
+        """清空 tactics_zhtx 表数据（保留结构）"""
+        conn = self._get_conn()
+        try:
+            conn.execute("DELETE FROM tactics_zhtx")
+            print("✅ 已清空 tactics_zhtx 表数据")
+        except Exception as e:
+            print(f"❌ 清空表数据失败: {e}")
         finally:
             conn.close()
 
@@ -76,9 +105,7 @@ class ShapeStorage:
             if table_name not in tables['name'].values:
                 return pd.DataFrame()
             sql = f"""
-                SELECT date, u形图形_内突_u_point, u形图形_内突_u_price,
-                       u形图形_内突_u_bot_price, u形图形_内突_u_k_num
-                FROM {table_name}
+                SELECT * FROM {table_name}
                 WHERE time_type = ?
                 ORDER BY date
             """
@@ -99,11 +126,11 @@ class ShapeStorage:
             self._init_tables()
             df = df.where(pd.notnull(df), None)
 
-            # 删除可能存在的 'id' 列，让数据库自动生成
+            # 如果存在 'id' 列，删除它（表已无此列）
             if 'id' in df.columns:
                 df = df.drop(columns=['id'])
 
-            # 处理 unique_columns
+            # 处理 unique_columns（用于去重）
             if isinstance(unique_columns, str):
                 unique_columns = [col.strip() for col in unique_columns.split(',')]
             if unique_columns is None or not isinstance(unique_columns, list):
@@ -143,3 +170,11 @@ def get_tactics_data(table_name='tactics', time_type='日线'):
 
 def save_shape_data(df, table_name='tactics_zhtx', unique_columns=None):
     get_storage().save_shape_data(df, table_name, unique_columns)
+
+def drop_combined_table():
+    """删除组合图形表（重置结构）"""
+    get_storage().drop_combined_table()
+
+def clear_combined_table():
+    """清空组合图形表数据"""
+    get_storage().clear_combined_table()

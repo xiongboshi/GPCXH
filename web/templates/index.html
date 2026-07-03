@@ -225,7 +225,8 @@
         }
 
         #limitUpArea,
-        #tacticsArea {
+        #tacticsArea,
+        #combinedArea {
             background: #111927;
             border-radius: 12px;
             border: 1px solid #1a2332;
@@ -234,7 +235,8 @@
         }
 
         #limitUpArea .header-row,
-        #tacticsArea .header-row {
+        #tacticsArea .header-row,
+        #combinedArea .header-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -242,13 +244,14 @@
         }
 
         #limitUpArea .header-row span,
-        #tacticsArea .header-row span {
+        #tacticsArea .header-row span,
+        #combinedArea .header-row span {
             font-weight: 600;
             color: #f0b90b;
         }
 
-        /* 策略搜索框 */
-        #tacticsSearchInput {
+        #tacticsSearchInput,
+        #combinedSearchInput {
             width: 100%;
             padding: 6px 12px;
             background: #0d1421;
@@ -258,7 +261,8 @@
             font-size: 13px;
         }
 
-        #tacticsSearchInput:focus {
+        #tacticsSearchInput:focus,
+        #combinedSearchInput:focus {
             outline: none;
             border-color: #f0b90b;
         }
@@ -343,17 +347,19 @@
             color: #6a7a8e;
         }
 
-        /* 策略列表行选中样式 */
-        #tacticsTableBody tr {
+        #tacticsTableBody tr,
+        #combinedTableBody tr {
             cursor: pointer;
             transition: background 0.2s;
         }
 
-        #tacticsTableBody tr:hover {
+        #tacticsTableBody tr:hover,
+        #combinedTableBody tr:hover {
             background: #1a2332;
         }
 
-        #tacticsTableBody tr.selected {
+        #tacticsTableBody tr.selected,
+        #combinedTableBody tr.selected {
             background: #2a3a4a;
             border-left: 3px solid #f0b90b;
         }
@@ -456,15 +462,13 @@
                 <button class="btn" id="queryBtn">🔍 查询</button>
             </div>
 
-        </div>
-
-        <div class="controls">
-
             <div class="group" style="flex:0.5;min-width:80px;">
                 <label>&nbsp;</label>
                 <button class="btn btn-secondary" id="btnLimitUp">📈涨T数据</button>
             </div>
+        </div>
 
+        <div class="controls">
             <div class="group" style="flex:0.5;min-width:120px;">
                 <label>📌 单股基础U形</label>
                 <input type="text" id="singleStockInput" placeholder="000060.SZ" style="width:100%;">
@@ -482,19 +486,17 @@
                 <label>&nbsp;</label>
                 <button class="btn btn-secondary" id="btnRunStrategyParallel">基础U形(多线)</button>
             </div>
-            <!-- <div class="group" style="flex:0.5;min-width:120px;">
-                <label>📊策略</label>
-                <select id="strategySelect">
-                    <option value="full">双U形</option>
-                    <option value="pure">双炮台</option>
-                </select>
-            </div> -->
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" id="btnRunCombined">🔀组合图形</button>
+            </div>
         </div>
 
-        <!-- 涨停列表区域 -->
+        <!-- 涨停列表 -->
         <div id="limitUpArea" class="hidden">
             <div class="header-row">
-                <span>📈 最近12天涨T <span id="limitUpTotal" style="margin-left: 15px; color: #f0b90b; font-weight: normal;">总数: 0</span></span>
+                <span>📈 最近12天涨T <span id="limitUpTotal" style="margin-left:15px;color:#f0b90b;font-weight:normal;">总数:
+                        0</span></span>
                 <button class="btn btn-sm btn-secondary" id="btnCloseLimitUp">✕ 关闭</button>
             </div>
             <div style="max-height:300px; overflow-y:auto;">
@@ -514,16 +516,15 @@
             </div>
         </div>
 
-        <!-- 策略列表区域 -->
+        <!-- 基础策略列表 -->
         <div id="tacticsArea" class="hidden">
             <div class="header-row">
                 <span>📈 基础策略列表</span>
                 <button class="btn btn-sm btn-secondary" id="btnCloseTactics">✕ 关闭</button>
             </div>
-            <!-- 搜索框 -->
-            <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
-                <input type="text" id="tacticsSearchInput" placeholder="🔍 搜索股票代码..." style="flex: 1;">
-                <button class="btn btn-sm btn-secondary" id="btnClearTacticsSearch" style="padding: 6px 16px;">✕
+            <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+                <input type="text" id="tacticsSearchInput" placeholder="🔍 搜索代码..." style="flex:1;">
+                <button class="btn btn-sm btn-secondary" id="btnClearTacticsSearch" style="padding:6px 16px;">✕
                     清除</button>
             </div>
             <div style="max-height:300px; overflow-y:auto;">
@@ -540,6 +541,36 @@
                         </tr>
                     </thead>
                     <tbody id="tacticsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 组合图形列表 -->
+        <div id="combinedArea" class="hidden">
+            <div class="header-row">
+                <span>📈 组合图形列表</span>
+                <button class="btn btn-sm btn-secondary" id="btnCloseCombined">✕ 关闭</button>
+            </div>
+            <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+                <input type="text" id="combinedSearchInput" placeholder="🔍 搜索代码..." style="flex:1;">
+                <button class="btn btn-sm btn-secondary" id="btnClearCombinedSearch" style="padding:6px 16px;">✕
+                    清除</button>
+            </div>
+            <div style="max-height:300px; overflow-y:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr>
+                            <th>代码</th>
+                            <th>形态类型</th>
+                            <th>方向</th>
+                            <th>启动时间</th>
+                            <th>结束时间</th>
+                            <th>U形价格</th>
+                            <th>U形时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="combinedTableBody"></tbody>
                 </table>
             </div>
         </div>
@@ -754,7 +785,6 @@
                 .then(res => res.json())
                 .then(data => {
                     const stocks = data.stocks || [];
-                    // 更新总股数
                     document.getElementById('limitUpTotal').textContent = '总数: ' + stocks.length;
                     limitUpTableBody.innerHTML = '';
                     if (stocks.length === 0) {
@@ -782,7 +812,7 @@
             limitUpArea.classList.add('hidden');
         });
 
-        // 加载带标记的K线（涨停标记）
+        // 加载带涨停标记的K线
         function loadKlineWithMarker(code) {
             const limit = limitSelect.value;
             document.getElementById('loadingDiv').style.display = 'block';
@@ -811,7 +841,7 @@
                 });
         }
 
-        // ======== 策略列表功能 ========
+        // ======== 基础策略列表功能 ========
         const btnRunStrategy = document.getElementById('btnRunStrategy');
         const tacticsArea = document.getElementById('tacticsArea');
         const btnCloseTactics = document.getElementById('btnCloseTactics');
@@ -819,19 +849,17 @@
         const tacticsSearchInput = document.getElementById('tacticsSearchInput');
         const btnClearTacticsSearch = document.getElementById('btnClearTacticsSearch');
 
-        // 策略列表搜索功能
         tacticsSearchInput.addEventListener('input', function () {
             const keyword = this.value.trim().toLowerCase();
             const rows = tacticsTableBody.querySelectorAll('tr');
             rows.forEach(row => {
-                const symbolCell = row.cells[0]; // 第一列是代码
+                const symbolCell = row.cells[0];
                 if (symbolCell) {
                     const text = symbolCell.textContent.toLowerCase();
                     row.style.display = text.includes(keyword) ? '' : 'none';
                 }
             });
         });
-
         btnClearTacticsSearch.addEventListener('click', function () {
             tacticsSearchInput.value = '';
             tacticsSearchInput.dispatchEvent(new Event('input'));
@@ -839,16 +867,11 @@
 
         btnRunStrategy.addEventListener('click', function () {
             const btn = this;
-            // const strategyType = document.getElementById('strategySelect').value;
             const strategyType = '';
-
-            // 如果列表已显示，则切换隐藏
             if (!tacticsArea.classList.contains('hidden')) {
                 tacticsArea.classList.add('hidden');
                 return;
             }
-
-            // 步骤1：清空 tactics 表
             appendLog('🗑️ 清空策略表...', 'info');
             btn.disabled = true;
             btn.textContent = '⏳ 清空中...';
@@ -860,8 +883,6 @@
                         throw new Error(clearResult.error || '清空失败');
                     }
                     appendLog('✅ 策略表已清空', 'success');
-
-                    // 步骤2：执行策略检测
                     appendLog('🚀 开始执行策略检测...', 'info');
                     btn.textContent = '⏳ 计算中...';
                     return fetch('/api/run_strategy', {
@@ -876,8 +897,6 @@
                         throw new Error(strategyResult.message || '策略执行失败');
                     }
                     appendLog(`✅ 策略检测完成，发现 ${strategyResult.count || 0} 个信号`, 'success');
-
-                    // 步骤3：加载策略列表
                     appendLog('📋 加载策略列表...', 'info');
                     btn.textContent = '⏳ 加载列表...';
                     return fetch('/api/tactics');
@@ -889,7 +908,6 @@
                 .then(data => {
                     if (!Array.isArray(data)) data = [];
                     tacticsTableBody.innerHTML = '';
-                    // 清空搜索框
                     tacticsSearchInput.value = '';
                     if (data.length === 0) {
                         tacticsTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6a7a8e;padding:20px;">暂无策略数据</td></tr>';
@@ -900,10 +918,8 @@
                             tr.dataset.date = item.date;
                             tr.dataset.upoint = item.u形图形_内突_u_point || '';
                             tr.addEventListener('click', function () {
-                                // 移除其他行的选中样式
                                 document.querySelectorAll('#tacticsTableBody tr').forEach(row => row.classList.remove('selected'));
                                 this.classList.add('selected');
-                                // 加载K线
                                 loadKlineWithTactics(this);
                             });
                             tr.innerHTML = `
@@ -916,7 +932,6 @@
                             `;
                             tacticsTableBody.appendChild(tr);
                         });
-                        // 重新应用搜索过滤（如果搜索框有内容）
                         tacticsSearchInput.dispatchEvent(new Event('input'));
                     }
                     tacticsArea.classList.remove('hidden');
@@ -931,18 +946,14 @@
                 });
         });
 
-
         document.getElementById('btnRunStrategyParallel').addEventListener('click', function () {
             const btn = this;
             const strategyType = document.getElementById('strategySelect').value;
 
-            // 如果列表已显示，则切换隐藏（与单线程共用同一个列表区域）
             if (!tacticsArea.classList.contains('hidden')) {
                 tacticsArea.classList.add('hidden');
                 return;
             }
-
-            // 步骤1：清空 tactics 表
             appendLog('🗑️ 清空策略表...', 'info');
             btn.disabled = true;
             btn.textContent = '⏳ 清空中...';
@@ -954,8 +965,6 @@
                         throw new Error(clearResult.error || '清空失败');
                     }
                     appendLog('✅ 策略表已清空', 'success');
-
-                    // 步骤2：执行多线程策略检测
                     appendLog('🚀 开始执行多线程策略检测...', 'info');
                     btn.textContent = '⏳ 计算中(多线程)...';
                     return fetch('/api/run_strategy_parallel', {
@@ -970,8 +979,6 @@
                         throw new Error(strategyResult.message || '策略执行失败');
                     }
                     appendLog(`✅ 多线程策略检测完成，发现 ${strategyResult.count || 0} 个信号`, 'success');
-
-                    // 步骤3：加载策略列表
                     appendLog('📋 加载策略列表...', 'info');
                     btn.textContent = '⏳ 加载列表...';
                     return fetch('/api/tactics');
@@ -1021,8 +1028,7 @@
                 });
         });
 
-
-
+        // 单股检测
         document.getElementById('btnRunSingleStock').addEventListener('click', function () {
             const codeInput = document.getElementById('singleStockInput').value.trim();
             if (!codeInput) {
@@ -1030,14 +1036,10 @@
                 return;
             }
             const btn = this;
-
-            // 如果列表已显示，则切换隐藏
             if (!tacticsArea.classList.contains('hidden')) {
                 tacticsArea.classList.add('hidden');
                 return;
             }
-
-            // 步骤1：清空 tactics 表
             appendLog('🗑️ 清空策略表...', 'info');
             btn.disabled = true;
             btn.textContent = '⏳ 清空中...';
@@ -1049,17 +1051,15 @@
                         throw new Error(clearResult.error || '清空失败');
                     }
                     appendLog('✅ 策略表已清空', 'success');
-
-                    // 步骤2：执行单股策略检测（使用多线程接口，但只传单只股票）
                     appendLog(`🚀 开始执行单股策略检测: ${codeInput} (多基准点)`, 'info');
                     btn.textContent = '⏳ 计算中...';
                     return fetch('/api/run_strategy_parallel', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            strategy_type: 'full',   // 默认双U形，如需切换可恢复策略选择框
+                            strategy_type: 'full',
                             stock_list: [codeInput],
-                            num_workers: 4           // 单股无需太多线程，但保持接口一致
+                            num_workers: 4
                         })
                     });
                 })
@@ -1069,8 +1069,6 @@
                         throw new Error(strategyResult.message || '策略执行失败');
                     }
                     appendLog(`✅ 单股策略检测完成，发现 ${strategyResult.count || 0} 个信号`, 'success');
-
-                    // 步骤3：加载策略列表
                     appendLog('📋 加载策略列表...', 'info');
                     btn.textContent = '⏳ 加载列表...';
                     return fetch('/api/tactics');
@@ -1091,7 +1089,6 @@
                             tr.dataset.symbol = item.symbol;
                             tr.dataset.date = item.date;
                             tr.dataset.upoint = item.u形图形_内突_u_point || '';
-                            // 计算U背价格
                             let uBackPrice = '';
                             if (item.direction === '买') {
                                 uBackPrice = item.u形图形_内突_u_bot_price ?? '';
@@ -1128,45 +1125,181 @@
                 });
         });
 
+        // ======== 组合图形功能（新增） ========
+        const btnRunCombined = document.getElementById('btnRunCombined');
+        const combinedArea = document.getElementById('combinedArea');
+        const btnCloseCombined = document.getElementById('btnCloseCombined');
+        const combinedTableBody = document.getElementById('combinedTableBody');
+        const combinedSearchInput = document.getElementById('combinedSearchInput');
+        const btnClearCombinedSearch = document.getElementById('btnClearCombinedSearch');
 
+        combinedSearchInput.addEventListener('input', function () {
+            const keyword = this.value.trim().toLowerCase();
+            const rows = combinedTableBody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const symbolCell = row.cells[0];
+                if (symbolCell) {
+                    const text = symbolCell.textContent.toLowerCase();
+                    row.style.display = text.includes(keyword) ? '' : 'none';
+                }
+            });
+        });
+        btnClearCombinedSearch.addEventListener('click', function () {
+            combinedSearchInput.value = '';
+            combinedSearchInput.dispatchEvent(new Event('input'));
+        });
+
+        btnRunCombined.addEventListener('click', function () {
+            const btn = this;
+            const strategyType = 'full';
+            if (!combinedArea.classList.contains('hidden')) {
+                combinedArea.classList.add('hidden');
+                return;
+            }
+            appendLog('🔀 开始执行组合图形策略...', 'info');
+            btn.disabled = true;
+            btn.textContent = '⏳ 执行中...';
+            fetch('/api/run_combined', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ strategy_type: strategyType })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('组合图形检测完成，发现', data, '个信号');
+                        appendLog(`✅ 组合图形检测完成，发现 ${data.count || 0} 个信号`, 'success');
+                        return fetch('/api/combined');
+                    } else {
+                        throw new Error(data.message || '执行失败');
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (!Array.isArray(data)) data = [];
+                    combinedTableBody.innerHTML = '';
+                    combinedSearchInput.value = '';
+                    if (data.length === 0) {
+                        combinedTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6a7a8e;padding:20px;">暂无组合图形信号</td></tr>';
+                    } else {
+                        data.forEach(item => {
+                            const tr = document.createElement('tr');
+                            // 存入必要数据
+                            tr.dataset.symbol = item.symbol;
+                            tr.dataset.sellPrice = item.大的_U形_u_price || '';
+                            tr.dataset.sellPoint = item.大的_U形_point_time || '';
+                            tr.dataset.buyPoint = item.小的_U形_point_time || '';
+                            tr.addEventListener('click', function () {
+                                loadKlineWithCombined(this);
+                            });
+                            tr.innerHTML = `
+                            <td>${item.symbol}</td>
+                            <td>${item.touch_type || ''}</td>
+                            <td>${item.direction}</td>
+                            <td>${item.tp_time || ''}</td>
+                            <td>${item.ht_time || ''}</td>
+                            <td>${item.小的_U形_u_price || ''}</td>
+                            <td>${item.大的_U形_datetime || ''}</td>
+                            <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+                        `;
+                            combinedTableBody.appendChild(tr);
+                        });
+                        combinedSearchInput.dispatchEvent(new Event('input'));
+                    }
+                    combinedArea.classList.remove('hidden');
+                    btn.disabled = false;
+                    btn.textContent = '🔀组合图形';
+                })
+                .catch(err => {
+                    appendLog(`❌ 组合图形执行失败: ${err.message}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔀组合图形';
+                });
+        });
+
+        btnCloseCombined.addEventListener('click', function () {
+            combinedArea.classList.add('hidden');
+        });
 
         btnCloseTactics.addEventListener('click', function () {
             tacticsArea.classList.add('hidden');
         });
 
-        // 加载带策略标记的K线
-        function loadKlineWithTactics(row) {
-            const code = row.dataset.symbol;
-            const datePoint = row.dataset.date;
-            const uPoint = row.dataset.upoint;
+
+        function loadKlineWithCombined(row) {
+            const symbol = row.dataset.symbol;
+            const sellPrice = parseFloat(row.dataset.sellPrice);
+            const sellPoint = row.dataset.sellPoint;
+            const buyPoint = row.dataset.buyPoint;
             const limit = limitSelect.value;
 
-            if (!code) {
+            if (!symbol) {
                 appendLog('❌ 未找到股票代码', 'error');
                 return;
             }
-
             document.getElementById('loadingDiv').style.display = 'block';
             document.getElementById('resultArea').classList.add('hidden');
             document.getElementById('status').textContent = '⏳ 加载K线...';
 
-            let url = `/api/kline_with_tactics?code=${code}&limit=${limit}`;
-            if (datePoint) url += `&date_point=${datePoint}`;
-            if (uPoint) url += `&u_point=${uPoint}`;
-
-            fetch(url)
+            fetch(`/api/kline?code=${symbol}&limit=${limit}`)
                 .then(res => {
                     if (!res.ok) throw new Error('请求失败');
                     return res.json();
                 })
-                .then(result => {
+                .then(data => {
+                    console.log('🎯 U左日期:', buyPoint);
+
+                    const markers = [];
+                    // 1. 卖背水平线
+                    if (!isNaN(sellPrice) && sellPrice > 0) {
+                        markers.push({
+                            trade_date: null,
+                            price: sellPrice,
+                            type: 'level',
+                            label: ''
+                        });
+                    }
+                    // 2. U左标记
+                    if (buyPoint) {
+                        // 提取 YYYY-MM-DD 格式
+                        const buyDate = buyPoint.slice(0, 10);
+                        // 精确匹配
+                        let buyRow = data.find(d => d.trade_date === buyDate);
+                        // 如果精确匹配失败，尝试宽松匹配（忽略前导空格等）
+                        if (!buyRow) {
+                            const trimmedDate = buyDate.trim();
+                            buyRow = data.find(d => d.trade_date.trim() === trimmedDate);
+                        }
+                        // 如果还失败，尝试日期对象比较
+                        if (!buyRow) {
+                            const targetDate = new Date(buyDate);
+                            buyRow = data.find(d => {
+                                const dDate = new Date(d.trade_date);
+                                return dDate.getFullYear() === targetDate.getFullYear() &&
+                                    dDate.getMonth() === targetDate.getMonth() &&
+                                    dDate.getDate() === targetDate.getDate();
+                            });
+                        }
+                        if (buyRow) {
+                            markers.push({
+                                trade_date: buyDate,
+                                price: buyRow.close_price,
+                                type: 'buy_point',
+                                label: 'U左'
+                            });
+                            console.log('✅ 找到U左:', buyDate, '价格:', buyRow.close_price);
+                        } else {
+                            console.warn('⚠️ 未找到U左日期', buyDate, '，K线日期前10个:', data.slice(0, 10).map(d => d.trade_date));
+                            appendLog(`⚠️ 未找到U左日期 ${buyDate} 的K线数据`, 'info');
+                        }
+                    }
                     document.getElementById('loadingDiv').style.display = 'none';
                     document.getElementById('resultArea').classList.remove('hidden');
-                    document.getElementById('status').textContent = `✅ 加载完成（含策略标记）`;
-                    renderChart(result.data, result.markers);
-                    renderTable(result.data);
-                    document.getElementById('klineInfo').textContent = result.data.length + ' 根K线';
-                    document.getElementById('tableCount').textContent = result.data.length + ' 条';
+                    document.getElementById('status').textContent = '✅ 加载完成（含组合标记）';
+                    renderChart(data, markers);
+                    renderTable(data);
+                    document.getElementById('klineInfo').textContent = data.length + ' 根K线';
+                    document.getElementById('tableCount').textContent = data.length + ' 条';
                 })
                 .catch(err => {
                     document.getElementById('loadingDiv').style.display = 'none';
@@ -1175,7 +1308,10 @@
                 });
         }
 
-        // ======== 图表渲染（支持多种标记） ========
+
+
+
+        // 图表渲染（水平线标签改到左侧）
         function renderChart(data, markers) {
             const container = document.getElementById('klineChart');
             if (!chart) {
@@ -1183,28 +1319,28 @@
                 window.addEventListener('resize', () => chart && chart.resize());
             }
 
-            // 1. 对K线数据按日期升序排序
             data.sort((a, b) => new Date(a.trade_date) - new Date(b.trade_date));
 
-            // 2. 提取日期
             const dates = data.map(d => {
                 let dateStr = d.trade_date;
                 if (dateStr && dateStr.length > 10) dateStr = dateStr.slice(0, 10);
                 return dateStr.trim();
             });
-
             const kValues = data.map(d => [d.open_price, d.close_price, d.low_price, d.high_price]);
             const volumes = data.map(d => d.volume);
             const maxVolume = Math.max(...volumes, 1);
 
-            // 3. 构建标记点
             const markPoints = [];
+            let levelLinePrice = null;
             if (markers && markers.length > 0) {
                 markers.forEach(m => {
+                    if (m.type === 'level') {
+                        levelLinePrice = m.price;
+                        return;
+                    }
                     let markerDate = m.trade_date;
                     if (markerDate && markerDate.length > 10) markerDate = markerDate.slice(0, 10);
                     markerDate = markerDate.trim();
-
                     const idx = dates.findIndex(d => d === markerDate);
                     if (idx !== -1) {
                         let color, label, symbolSize = 30;
@@ -1214,6 +1350,10 @@
                         } else if (m.type === 'u_point') {
                             color = '#2196f3';
                             label = 'U形点';
+                        } else if (m.type === 'buy_point') {
+                            color = '#4caf50';
+                            label = 'U左';
+                            symbolSize = 30;
                         } else {
                             color = '#f0b90b';
                             label = '涨停';
@@ -1233,9 +1373,20 @@
                                 position: 'top'
                             }
                         });
-                    } else {
-                        console.warn(`⚠️ 未找到标记日期: ${markerDate}`);
                     }
+                });
+            }
+
+            const markLineData = [];
+            if (levelLinePrice !== null && !isNaN(levelLinePrice) && levelLinePrice > 0) {
+                markLineData.push({
+                    yAxis: levelLinePrice,
+                    label: {
+                        formatter: levelLinePrice.toFixed(2),
+                        color: '#ffffff',
+                        position: 'start'   // ✅ 标签显示在左侧
+                    },
+                    lineStyle: { color: '#ffffff', type: 'solid', width: 2 }
                 });
             }
 
@@ -1248,15 +1399,17 @@
                         const d = data[idx];
                         if (!d) return '';
                         let html = `<div style="font-weight:600;">${d.trade_date}</div>
-                            开盘: ${d.open_price}<br>
-                            最高: ${d.high_price}<br>
-                            最低: ${d.low_price}<br>
-                            收盘: ${d.close_price}<br>
-                            成交量: ${d.volume}<br>
-                            涨跌幅: ${d.pct_chg ? d.pct_chg.toFixed(2) : '0.00'}%`;
+                    开盘: ${d.open_price}<br>
+                    最高: ${d.high_price}<br>
+                    最低: ${d.low_price}<br>
+                    收盘: ${d.close_price}<br>
+                    成交量: ${d.volume}<br>
+                    涨跌幅: ${d.pct_chg ? d.pct_chg.toFixed(2) : '0.00'}%`;
                         if (markers) {
                             const marker = markers.find(m => m.trade_date === d.trade_date);
-                            if (marker) html += `<br><span style="color:${marker.type === 'date' ? '#ff5722' : '#2196f3'};">🔺 ${marker.label}</span>`;
+                            if (marker && marker.type !== 'level') {
+                                html += `<br><span style="color:${marker.type === 'date' ? '#ff5722' : '#2196f3'};">🔺 ${marker.label}</span>`;
+                            }
                         }
                         return html;
                     }
@@ -1319,6 +1472,14 @@
                             fontWeight: 'bold',
                             position: 'top'
                         }
+                    },
+                    markLine: {
+                        silent: true,
+                        data: markLineData,
+                        label: {
+                            fontSize: 10,
+                            color: '#ffffff'
+                        }
                     }
                 }, {
                     name: '成交量',
@@ -1339,6 +1500,238 @@
             chart.setOption(option);
             setTimeout(() => chart && chart.resize(), 200);
         }
+
+
+
+
+        // 加载带策略标记的K线（基础U形）
+        function loadKlineWithTactics(row) {
+            const code = row.dataset.symbol;
+            const datePoint = row.dataset.date;
+            const uPoint = row.dataset.upoint;
+            const limit = limitSelect.value;
+            if (!code) {
+                appendLog('❌ 未找到股票代码', 'error');
+                return;
+            }
+            document.getElementById('loadingDiv').style.display = 'block';
+            document.getElementById('resultArea').classList.add('hidden');
+            document.getElementById('status').textContent = '⏳ 加载K线...';
+            let url = `/api/kline_with_tactics?code=${code}&limit=${limit}`;
+            if (datePoint) url += `&date_point=${datePoint}`;
+            if (uPoint) url += `&u_point=${uPoint}`;
+            fetch(url)
+                .then(res => {
+                    if (!res.ok) throw new Error('请求失败');
+                    return res.json();
+                })
+                .then(result => {
+                    document.getElementById('loadingDiv').style.display = 'none';
+                    document.getElementById('resultArea').classList.remove('hidden');
+                    document.getElementById('status').textContent = `✅ 加载完成（含策略标记）`;
+                    renderChart(result.data, result.markers);
+                    renderTable(result.data);
+                    document.getElementById('klineInfo').textContent = result.data.length + ' 根K线';
+                    document.getElementById('tableCount').textContent = result.data.length + ' 条';
+                })
+                .catch(err => {
+                    document.getElementById('loadingDiv').style.display = 'none';
+                    document.getElementById('status').textContent = '❌ 加载失败';
+                    appendLog(`❌ 加载K线失败: ${err.message}`, 'error');
+                });
+        }
+
+        // 图表渲染函数（修改 markLine 颜色为白色实线）
+        function renderChart(data, markers) {
+            const container = document.getElementById('klineChart');
+            if (!chart) {
+                chart = echarts.init(container);
+                window.addEventListener('resize', () => chart && chart.resize());
+            }
+
+            data.sort((a, b) => new Date(a.trade_date) - new Date(b.trade_date));
+
+            const dates = data.map(d => {
+                let dateStr = d.trade_date;
+                if (dateStr && dateStr.length > 10) dateStr = dateStr.slice(0, 10);
+                return dateStr.trim();
+            });
+            const kValues = data.map(d => [d.open_price, d.close_price, d.low_price, d.high_price]);
+            const volumes = data.map(d => d.volume);
+            const maxVolume = Math.max(...volumes, 1);
+
+            const markPoints = [];
+            let levelLinePrice = null;
+            if (markers && markers.length > 0) {
+                markers.forEach(m => {
+                    if (m.type === 'level') {
+                        levelLinePrice = m.price;
+                        return;
+                    }
+                    let markerDate = m.trade_date;
+                    if (markerDate && markerDate.length > 10) markerDate = markerDate.slice(0, 10);
+                    markerDate = markerDate.trim();
+                    const idx = dates.findIndex(d => d === markerDate);
+                    if (idx !== -1) {
+                        let color, label, symbolSize = 30;
+                        if (m.type === 'date') {
+                            color = '#ff5722';
+                            label = '策略日';
+                        } else if (m.type === 'u_point') {
+                            color = '#2196f3';
+                            label = 'U形点';
+                        } else if (m.type === 'buy_point') {
+                            color = '#4caf50';
+                            label = 'U左';
+                            symbolSize = 30;
+                        } else {
+                            color = '#f0b90b';
+                            label = '涨停';
+                            symbolSize = 20;
+                        }
+                        markPoints.push({
+                            coord: [idx, m.price],
+                            symbol: 'pin',
+                            symbolSize: symbolSize,
+                            itemStyle: { color: color },
+                            label: {
+                                show: true,
+                                formatter: label,
+                                color: '#fff',
+                                fontSize: 10,
+                                fontWeight: 'bold',
+                                position: 'top'
+                            }
+                        });
+                    }
+                });
+            }
+
+            // 水平线 markLine
+            const markLineData = [];
+            if (levelLinePrice !== null && !isNaN(levelLinePrice) && levelLinePrice > 0) {
+                markLineData.push({
+                    yAxis: levelLinePrice,
+                    label: {
+                        formatter: levelLinePrice.toFixed(2),
+                        color: '#ffffff'
+                    },
+                    lineStyle: { color: '#ffffff', type: 'solid', width: 2 }
+                });
+            }
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' },
+                    formatter: function (params) {
+                        const idx = params[0].dataIndex;
+                        const d = data[idx];
+                        if (!d) return '';
+                        let html = `<div style="font-weight:600;">${d.trade_date}</div>
+                    开盘: ${d.open_price}<br>
+                    最高: ${d.high_price}<br>
+                    最低: ${d.low_price}<br>
+                    收盘: ${d.close_price}<br>
+                    成交量: ${d.volume}<br>
+                    涨跌幅: ${d.pct_chg ? d.pct_chg.toFixed(2) : '0.00'}%`;
+                        if (markers) {
+                            const marker = markers.find(m => m.trade_date === d.trade_date);
+                            if (marker && marker.type !== 'level') {
+                                html += `<br><span style="color:${marker.type === 'date' ? '#ff5722' : '#2196f3'};">🔺 ${marker.label}</span>`;
+                            }
+                        }
+                        return html;
+                    }
+                },
+                dataZoom: [
+                    { type: 'inside', start: 0, end: 100, minSpan: 5, maxSpan: 100 },
+                    {
+                        type: 'slider', start: 0, end: 100, minSpan: 5, maxSpan: 100, height: 20, bottom: 5,
+                        borderColor: '#1a2332', fillerColor: 'rgba(240,185,11,0.15)',
+                        handleStyle: { color: '#f0b90b' }, textStyle: { color: '#6a7a8e' }, xAxisIndex: [0, 1]
+                    }
+                ],
+                grid: [
+                    { left: '6%', right: '6%', top: '8%', height: '58%' },
+                    { left: '6%', right: '6%', top: '70%', height: '18%' }
+                ],
+                xAxis: [
+                    {
+                        type: 'category', data: dates, scale: true,
+                        axisLabel: { color: '#6a7a8e', interval: Math.floor(dates.length / 20) },
+                        axisLine: { lineStyle: { color: '#1a2332' } }, gridIndex: 0
+                    },
+                    {
+                        type: 'category', data: dates, scale: true,
+                        axisLabel: { show: false }, axisLine: { show: false }, gridIndex: 1
+                    }
+                ],
+                yAxis: [
+                    {
+                        scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' }, gridIndex: 0
+                    },
+                    {
+                        scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' }, gridIndex: 1, min: 0, max: maxVolume * 1.2
+                    }
+                ],
+                series: [{
+                    name: 'K线',
+                    type: 'candlestick',
+                    data: kValues,
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
+                    itemStyle: {
+                        color: '#ff1744',
+                        color0: '#00c853',
+                        borderColor: '#ff1744',
+                        borderColor0: '#00c853',
+                    },
+                    markPoint: {
+                        data: markPoints,
+                        symbol: 'pin',
+                        symbolSize: 30,
+                        itemStyle: { color: '#f0b90b' },
+                        label: {
+                            show: true,
+                            formatter: function (params) { return params.data.label; },
+                            color: '#fff',
+                            fontSize: 10,
+                            fontWeight: 'bold',
+                            position: 'top'
+                        }
+                    },
+                    markLine: {
+                        silent: true,
+                        data: markLineData,
+                        label: {
+                            fontSize: 10,
+                            color: '#ffffff'
+                        }
+                    }
+                }, {
+                    name: '成交量',
+                    type: 'bar',
+                    data: volumes,
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
+                    barWidth: '60%',
+                    itemStyle: {
+                        color: function (params) {
+                            const idx = params.dataIndex;
+                            return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
+                        }
+                    }
+                }]
+            };
+
+            chart.setOption(option);
+            setTimeout(() => chart && chart.resize(), 200);
+        }
+
+
 
         function renderTable(data) {
             const tbody = document.getElementById('tableBody');

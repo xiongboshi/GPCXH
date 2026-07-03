@@ -10,6 +10,8 @@ import pandas as pd
 import subprocess
 from datetime import datetime, timedelta
 
+from database.shape_storage import drop_combined_table
+
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, 'database', 'market.duckdb')
@@ -382,6 +384,89 @@ def run_strategy_parallel():
         return jsonify({'success': False, 'message': f'策略执行异常: {str(e)}'}), 500
     
 
+
+@app.route('/api/clear_combined', methods=['POST'])
+def clear_combined():
+    db = get_db()
+    try:
+        db.execute("DELETE FROM tactics_zhtx")
+        db.close()
+        return jsonify({'success': True, 'message': '组合图形表已清空'})
+    except Exception as e:
+        db.close()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+
+
+@app.route('/api/run_combined', methods=['POST'])
+def run_combined():
+    try:
+        # 删除旧表，重建新结构
+        drop_combined_table()
+
+        data = request.get_json()
+        strategy_type = data.get('strategy_type', 'full')
+        stock_list = data.get('stock_list', None)
+
+        if not stock_list:
+            db = get_db()
+            df = db.execute("SELECT DISTINCT symbol FROM tactics").df()
+            db.close()
+            stock_list = df['symbol'].tolist() if not df.empty else []
+
+        if not stock_list:
+            return jsonify({'success': False, 'message': '没有股票可检测，请先生成基础U形'}), 400
+
+        result_df = amount.run_combined_strategy_on_stock_list_parallel(stock_list, strategy_type=strategy_type)
+
+        if result_df.empty:
+            return jsonify({'success': True, 'signals': [], 'count': 0})
+        else:
+            signals = result_df.to_dict(orient='records')
+            for s in signals:
+                for k, v in s.items():
+                    if isinstance(v, pd.Timestamp):
+                        s[k] = v.strftime('%Y-%m-%d')
+            return jsonify({'success': True, 'signals': signals, 'count': len(signals)})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'组合图形执行异常: {str(e)}'}), 500
+    
+
+
+@app.route('/api/combined')
+def get_combined():
+    db = get_db()
+    try:
+        tables = db.execute("SHOW TABLES").df()
+        if 'tactics_zhtx' not in tables['name'].values:
+            db.close()
+            return jsonify([])
+        # ✅ 添加缺失字段：大的_U形_u_price, 大的_U形_point_time, 小的_U形_point_time
+        df = db.execute("""
+            SELECT symbol, touch_type, direction, tp_time, ht_time, 
+                   小的_U形_u_price, 大的_U形_datetime,
+                   大的_U形_u_price, 大的_U形_point_time, 小的_U形_point_time
+            FROM tactics_zhtx
+            ORDER BY symbol, direction
+        """).df()
+        db.close()
+        if df.empty:
+            return jsonify([])
+        records = df.to_dict(orient='records')
+        for r in records:
+            # 日期字段转字符串
+            for col in ['tp_time', 'ht_time', '大的_U形_datetime', '大的_U形_point_time', '小的_U形_point_time']:
+                if r.get(col) is not None:
+                    r[col] = str(r[col])
+        return jsonify(records)
+    except Exception as e:
+        print(f"❌ /api/combined 异常: {e}")
+        db.close()
+        return jsonify([])
 
 
 
