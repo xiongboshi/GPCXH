@@ -21,7 +21,7 @@ touch_to_save = {
     '大的_U形_k_num': ''
 }
 
-def check_Double_U_主升(df, symbol, time_type, tactics_df, gp_row):
+def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
     """
     检测主升形态（从最新日期向前查找）：
     1. 筛选该股票的基础图形，按日期降序（最新在前）。
