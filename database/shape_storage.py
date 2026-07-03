@@ -19,13 +19,10 @@ class ShapeStorage:
         return duckdb.connect(self.db_path)
 
     def _init_tables(self):
-        """创建表（如果不存在）"""
         conn = self._get_conn()
         try:
-            # 1. tactics 表（不变）
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS tactics (
-                    id INTEGER PRIMARY KEY,
                     date DATE,
                     tactics_name VARCHAR,
                     time_type VARCHAR,
@@ -36,16 +33,12 @@ class ShapeStorage:
                     u形图形_内突_u_bot_price DOUBLE,
                     u形图形_内突_u_top_price DOUBLE,
                     u形图形_内突_u_k_num DOUBLE,
-                    u形图形_内突_u_point DATE
+                    u形图形_内突_u_point DATE,
+                    PRIMARY KEY (symbol, direction, time_type, u形图形_内突_u_price, u形图形_内突_u_bot_price, u形图形_内突_u_top_price)
                 )
             """)
-            conn.execute("""
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_tactics_unique 
-                ON tactics (symbol, direction, time_type, u形图形_内突_u_price, u形图形_内突_u_bot_price, u形图形_内突_u_top_price)
-            """)
-            print("✅ tactics 表已就绪 (id自增 + 唯一索引)")
+            print("✅ tactics 表已就绪 (复合主键)")
 
-            # 2. tactics_zhtx 表（复合主键，无自增列）
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS tactics_zhtx (
                     date DATE,
@@ -70,11 +63,12 @@ class ShapeStorage:
                 )
             """)
             print("✅ tactics_zhtx 表已就绪 (复合主键)")
-
         except Exception as e:
             print(f"❌ 表初始化失败: {e}")
         finally:
             conn.close()
+
+
 
     def drop_combined_table(self):
         """删除 tactics_zhtx 表（用于重置结构）"""

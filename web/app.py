@@ -11,6 +11,7 @@ import subprocess
 from datetime import datetime, timedelta
 
 from database.shape_storage import drop_combined_table
+from database.shape_storage import get_storage  # 或直接 ShapeStorage
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -194,7 +195,7 @@ def run_strategy():
         if not stock_list:
             return jsonify({'success': False, 'message': '没有可检测的股票'}), 400
 
-        result_df = amount.run_strategy_on_stock_list(stock_list, lookback_days=300, strategy_type=strategy_type)
+        result_df = amount.run_strategy_on_stock_list(stock_list, lookback_days=250, strategy_type=strategy_type)
 
         if result_df.empty:
             return jsonify({'success': True, 'signals': [], 'count': 0, 'message': '未检测到信号'})
@@ -298,11 +299,16 @@ def get_kline_with_tactics():
         db.close()
         return jsonify({'error': str(e)}), 500
 
+
 @app.route('/api/clear_tactics', methods=['POST'])
 def clear_tactics():
     """清空 tactics 表"""
     db = get_db()
     try:
+        # 确保 tactics 表存在（如果数据库被删除，先创建表）
+        storage = get_storage()
+        storage._init_tables()  # 这会执行 CREATE TABLE IF NOT EXISTS
+        
         db.execute("DELETE FROM tactics")
         db.close()
         return jsonify({'success': True, 'message': 'tactics 表已清空'})
@@ -363,7 +369,7 @@ def run_strategy_parallel():
         # 执行并行策略
         result_df = amount.run_strategy_on_stock_list_parallel(
             stock_list,
-            lookback_days=300,
+            lookback_days=250,
             strategy_type=strategy_type,
             num_workers=num_workers
         )

@@ -26,8 +26,8 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
         max_callback_arr_sell = []
         
         # 对前面300的每一个数据进行检查,现在是计算自身长度
-        all_k_num = int(len(df) * 0.7)
-        zc_k_num = int(len(df) * 0.28)  #支撑查看k线数
+        all_k_num = int(len(df) * 0.6)
+        zc_k_num = int(len(df) * 0.38)  #支撑查看k线数
             
         # 获取最后一根K线的收盘价
         last_row_close = df['close'].iloc[-1]

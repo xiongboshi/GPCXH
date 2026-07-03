@@ -31,7 +31,7 @@ def init_kline():
     print(f"✅ 共 {len(tickers)} 只股票 (已过滤)")
     
     # 批量获取K线
-    start_date = (datetime.now() - timedelta(days=360)).strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=250)).strftime("%Y-%m-%d")
     end_date = datetime.now().strftime("%Y-%m-%d")
     
     manager.batch_save_kline(tickers, start_date, end_date)
