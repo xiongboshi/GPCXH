@@ -477,18 +477,17 @@
                 <label>&nbsp;</label>
                 <button class="btn btn-secondary" id="btnRunSingleStock">🔍单股检测</button>
             </div>
-
-            <div class="group" style="flex:0.5;min-width:80px;">
-                <label>&nbsp;</label>
-                <button class="btn btn-secondary" id="btnRunStrategy">基础U形(新)</button>
-            </div>
-            <div class="group" style="flex:0.5;min-width:80px;">
-                <label>&nbsp;</label>
-                <button class="btn btn-secondary" id="btnRunStrategyParallel">基础U形(多线)</button>
-            </div>
             <div class="group" style="flex:0.5;min-width:80px;">
                 <label>&nbsp;</label>
                 <button class="btn btn-secondary" id="btnRunCombined">🔀组合图形</button>
+            </div>
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" id="btnRunStrategyParallel">🔍基础U形(多线)</button>
+            </div>
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" id="btnRunCombinedParallel">🔀组合图形(多线)</button>
             </div>
         </div>
 
@@ -841,7 +840,6 @@
         }
 
         // ======== 基础策略列表功能 ========
-        const btnRunStrategy = document.getElementById('btnRunStrategy');
         const tacticsArea = document.getElementById('tacticsArea');
         const btnCloseTactics = document.getElementById('btnCloseTactics');
         const tacticsTableBody = document.getElementById('tacticsTableBody');
@@ -864,90 +862,9 @@
             tacticsSearchInput.dispatchEvent(new Event('input'));
         });
 
-        btnRunStrategy.addEventListener('click', function () {
-            const btn = this;
-            const strategyType = '';
-            if (!tacticsArea.classList.contains('hidden')) {
-                tacticsArea.classList.add('hidden');
-                return;
-            }
-            appendLog('🗑️ 清空策略表...', 'info');
-            btn.disabled = true;
-            btn.textContent = '⏳ 清空中...';
-
-            fetch('/api/clear_tactics', { method: 'POST' })
-                .then(res => res.json())
-                .then(clearResult => {
-                    if (!clearResult.success) {
-                        throw new Error(clearResult.error || '清空失败');
-                    }
-                    appendLog('✅ 策略表已清空', 'success');
-                    appendLog('🚀 开始执行策略检测...', 'info');
-                    btn.textContent = '⏳ 计算中...';
-                    return fetch('/api/run_strategy', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ strategy_type: strategyType })
-                    });
-                })
-                .then(res => res.json())
-                .then(strategyResult => {
-                    if (!strategyResult.success) {
-                        throw new Error(strategyResult.message || '策略执行失败');
-                    }
-                    appendLog(`✅ 策略检测完成，发现 ${strategyResult.count || 0} 个信号`, 'success');
-                    appendLog('📋 加载策略列表...', 'info');
-                    btn.textContent = '⏳ 加载列表...';
-                    return fetch('/api/tactics');
-                })
-                .then(res => {
-                    if (!res.ok) throw new Error('HTTP ' + res.status);
-                    return res.json();
-                })
-                .then(data => {
-                    if (!Array.isArray(data)) data = [];
-                    tacticsTableBody.innerHTML = '';
-                    tacticsSearchInput.value = '';
-                    if (data.length === 0) {
-                        tacticsTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6a7a8e;padding:20px;">暂无策略数据</td></tr>';
-                    } else {
-                        data.forEach(item => {
-                            const tr = document.createElement('tr');
-                            tr.dataset.symbol = item.symbol;
-                            tr.dataset.date = item.date;
-                            tr.dataset.upoint = item.u形图形_内突_u_point || '';
-                            tr.addEventListener('click', function () {
-                                document.querySelectorAll('#tacticsTableBody tr').forEach(row => row.classList.remove('selected'));
-                                this.classList.add('selected');
-                                loadKlineWithTactics(this);
-                            });
-                            tr.innerHTML = `
-                                <td>${item.symbol}</td>
-                                <td>${item.date}</td>
-                                <td>${item.direction}</td>
-                                <td>${item.u形图形_内突_u_point || ''}</td>
-                                <td>${item.u形图形_内突_u_price}</td>
-                                <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
-                            `;
-                            tacticsTableBody.appendChild(tr);
-                        });
-                        tacticsSearchInput.dispatchEvent(new Event('input'));
-                    }
-                    tacticsArea.classList.remove('hidden');
-                    appendLog(`✅ 策略列表已加载，共 ${data.length} 条`, 'success');
-                    btn.disabled = false;
-                    btn.textContent = '🚀 策略';
-                })
-                .catch(err => {
-                    appendLog(`❌ 操作失败: ${err.message}`, 'error');
-                    btn.disabled = false;
-                    btn.textContent = '🚀 策略';
-                });
-        });
-
         document.getElementById('btnRunStrategyParallel').addEventListener('click', function () {
             const btn = this;
-            const strategyType = document.getElementById('strategySelect').value;
+            const strategyType = 'full';
 
             if (!tacticsArea.classList.contains('hidden')) {
                 tacticsArea.classList.add('hidden');
@@ -965,7 +882,7 @@
                     }
                     appendLog('✅ 策略表已清空', 'success');
                     appendLog('🚀 开始执行多线程策略检测...', 'info');
-                    btn.textContent = '⏳ 计算中(多线程)...';
+                    btn.textContent = '⏳ 计算中...';
                     return fetch('/api/run_strategy_parallel', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
