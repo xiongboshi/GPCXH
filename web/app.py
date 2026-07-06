@@ -476,6 +476,55 @@ def get_combined():
 
 
 
+
+@app.route('/api/run_combined_parallel', methods=['POST'])
+def run_combined_parallel():
+    """
+    多线程并行执行组合图形策略
+    """
+    try:
+        # 先清空组合图形表（确保数据干净）
+        drop_combined_table()
+        
+        data = request.get_json()
+        strategy_type = data.get('strategy_type', 'full')
+        num_workers = data.get('num_workers', 8)   # 默认8线程
+
+        # 获取所有有基础图形的股票（从 tactics 表）
+        db = get_db()
+        df = db.execute("SELECT DISTINCT symbol FROM tactics").df()
+        db.close()
+        stock_list = df['symbol'].tolist() if not df.empty else []
+
+        if not stock_list:
+            return jsonify({'success': False, 'message': '没有股票可检测，请先生成基础U形'}), 400
+
+        # 执行并行组合图形策略
+        result_df = amount.run_combined_strategy_on_stock_list_parallel(
+            stock_list, 
+            strategy_type=strategy_type,
+            num_workers=num_workers
+        )
+
+        if result_df.empty:
+            return jsonify({'success': True, 'signals': [], 'count': 0})
+        else:
+            signals = result_df.to_dict(orient='records')
+            for s in signals:
+                for k, v in s.items():
+                    if isinstance(v, pd.Timestamp):
+                        s[k] = v.strftime('%Y-%m-%d')
+            return jsonify({'success': True, 'signals': signals, 'count': len(signals)})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'组合图形并行执行异常: {str(e)}'}), 500
+    
+    
+
+
+
 # ========== 后台维护接口 ==========
 def run_script(script_path, input_text, timeout=300):
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
