@@ -82,11 +82,16 @@ class ShapeStorage:
             conn.close()
 
     def clear_combined_table(self):
-        """清空 tactics_zhtx 表数据（保留结构）"""
+        """清空 tactics_zhtx 表数据（保留结构），如果表不存在则忽略"""
         conn = self._get_conn()
         try:
-            conn.execute("DELETE FROM tactics_zhtx")
-            print("✅ 已清空 tactics_zhtx 表数据")
+            # 检查表是否存在
+            tables = conn.execute("SHOW TABLES").df()
+            if 'tactics_zhtx' in tables['name'].values:
+                conn.execute("DELETE FROM tactics_zhtx")
+                print("✅ 已清空 tactics_zhtx 表数据")
+            else:
+                print("ℹ️ tactics_zhtx 表不存在，无需清空")
         except Exception as e:
             print(f"❌ 清空表数据失败: {e}")
         finally:

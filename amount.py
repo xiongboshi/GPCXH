@@ -23,6 +23,7 @@ from slope import inside_break
 from slope_all import inside_break_all
 
 
+
 def get_kline_from_db(thscode, start_date, end_date):
     """
     从本地 DuckDB 获取指定股票的 K 线数据，返回 DataFrame
@@ -53,7 +54,7 @@ def get_kline_from_db(thscode, start_date, end_date):
     return df
 
 
-def check_touch_type(df, symbol, time_type, gp_row):
+def check_touch_type(df, symbol, time_type, gp_row, tactics_df):
     """
     检测组合图形（包含双U形、双炮台、龙虎突破等）
     df: 包含 date, open, close, high, low, volume, pctChg 的 DataFrame
@@ -65,9 +66,11 @@ def check_touch_type(df, symbol, time_type, gp_row):
         pd.set_option('future.no_silent_downcasting', True)
 
         # 获取模板数据（策略参数）
-        tactics_df = get_tactics_data('tactics', '日线')
+        if tactics_df is None:
+            tactics_df = get_tactics_data('tactics', '日线')
         if tactics_df.empty:
-            return pd.DataFrame()  # ✅ 返回空 DataFrame
+            return pd.DataFrame()
+        
 
         # 数据类型转换
         df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(-1).astype(float)
@@ -128,49 +131,11 @@ def check_touch_type(df, symbol, time_type, gp_row):
         return pd.DataFrame()
 
 
-def check_touch_type_pure(df, symbol, time_type, gp_row):
-    """
-    检测纯K线图形（专用双炮台、仙人指路）
-    """
-    try:
-        pd.set_option('future.no_silent_downcasting', True)
-
-        df['volume'] = pd.to_numeric(df['volume'], errors='coerce').fillna(-1).astype(float)
-        df['open'] = df['open'].astype(float)
-        df['close'] = df['close'].astype(float)
-        df['high'] = df['high'].astype(float)
-        df['low'] = df['low'].astype(float)
-        df['date'] = pd.to_datetime(df['date'])
-
-        data_entries = []
-        with ThreadPoolExecutor() as executor:
-            strategies = [
-                # executor.submit(check_bowl_shaped_仙人指路, df, symbol, time_type, df, gp_row),
-                # executor.submit(check_Double_U_双U形, df, symbol, time_type, df, gp_row),
-            ]
-            for future in as_completed(strategies):
-                result = future.result()
-                if result and isinstance(result, dict) and not all(pd.isnull(v) for v in result.values()):
-                    data_entries.append(result)
-
-        if data_entries:
-            new_data_df = pd.DataFrame(data_entries).replace('', np.nan)
-            filtered_data = new_data_df.dropna(how='all')
-            if not filtered_data.empty:
-                unique_columns = ['symbol', 'touch_type', 'time_type', 'direction']
-                df_unique = filtered_data.drop_duplicates(subset=unique_columns, keep='last')
-                print('✅ 发现纯K线信号：')
-                print(df_unique)
-                # 组合图形
-                save_shape_data(df_unique, 'tactics_zhtx', 'symbol, time_type, touch_type')
-
-    except Exception as e:
-        print(f"❌ 纯K线检测出错: {e}")
-
 
     
+#======================================== 执行基础策略检测 ====================================
 
-#===== 对单只股票执行策略检测 =====
+#===== 对单只股票执行基础策略检测 =====
 def run_strategy_on_stock(thscode, lookback_days=300, strategy_type='full'):
     """
     对单只股票执行策略检测
@@ -193,23 +158,10 @@ def run_strategy_on_stock(thscode, lookback_days=300, strategy_type='full'):
     inside_break(df, '日线')
     print(f"✅ {thscode} 基础图形检测完成")
 
-    # 构建 gp_row（用于高级策略）
-    gp_row = {
-        'now': df.iloc[-1]['close'],
-        'stock_code': thscode.split('.')[0]
-    }
-
-    # 执行高级策略
-    if strategy_type == 'full':
-        return check_touch_type(df, thscode, '日线', gp_row)
-    elif strategy_type == 'pure':
-        return check_touch_type_pure(df, thscode, '日线', gp_row)
-    else:
-        return pd.DataFrame()
 
 
 
-#===== 对多只股票批量执行策略检测 =====
+#===== 对多只股票批量执行基础策略检测 =====
 def run_strategy_on_stock_list(thscode_list, lookback_days=300, strategy_type='full'):
     """
     对多只股票批量执行策略检测，返回检测到的信号DataFrame
@@ -233,12 +185,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 # 原有的 run_strategy_on_stock_all 保持不变（它调用 inside_break_all）
 def run_strategy_on_stock_parallel(thscode, lookback_days=300, strategy_type='full'):
-    """单只股票策略检测的包装函数（用于多线程）"""
+    """单只股票策略基础检测的包装函数（用于多线程）"""
     return run_strategy_on_stock_all(thscode, lookback_days, strategy_type)
 
 def run_strategy_on_stock_list_parallel(thscode_list, lookback_days=300, strategy_type='full', num_workers=8):
     """
-    多线程并行执行策略检测，返回检测到的信号DataFrame
+    多线程并行执行基础策略检测，返回检测到的信号DataFrame
     使用 ThreadPoolExecutor 避免进程级文件锁冲突
     """
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -265,7 +217,7 @@ def run_strategy_on_stock_list_parallel(thscode_list, lookback_days=300, strateg
 #===== 对单只股票执行策略检测 多线程 =====
 def run_strategy_on_stock_all(thscode, lookback_days=300, strategy_type='full'):
     """
-    对单只股票执行策略检测
+    对单只股票执行基础策略检测
     1. 先运行 inside_break 生成基础图形数据（保存到 tactics 表）
     2. 再运行高级形态检测
     """
@@ -285,26 +237,13 @@ def run_strategy_on_stock_all(thscode, lookback_days=300, strategy_type='full'):
     inside_break_all(df, '日线')
     print(f"✅ {thscode} 基础图形检测完成")
 
-    # 构建 gp_row（用于高级策略）
-    # gp_row = {
-    #     'now': df.iloc[-1]['close'],
-    #     'stock_code': thscode.split('.')[0]
-    # }
-
-    # # 执行高级策略
-    # if strategy_type == 'full':
-    #     return check_touch_type(df, thscode, '日线', gp_row)
-    # elif strategy_type == 'pure':
-    #     return check_touch_type_pure(df, thscode, '日线', gp_row)
-    # else:
-    #     return pd.DataFrame()
 
 
+#======================================== 组合图形检测并行策略（优化版） ====================================
 
-
-# ===== 组合图形并行策略 =====
-def run_combined_strategy_on_stock_parallel(thscode, lookback_days=300, strategy_type='full'):
-    """单只股票组合图形检测的包装函数（用于多线程）"""
+# ===== 组合图形并行策略（优化版） =====
+def run_combined_strategy_on_stock_parallel(thscode, lookback_days, strategy_type, tactics_df):
+    """单只股票组合图形检测（传入 tactics_df 避免重复读取）"""
     try:
         end_date = datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
@@ -313,9 +252,8 @@ def run_combined_strategy_on_stock_parallel(thscode, lookback_days=300, strategy
             return None
         gp_row = {'now': df.iloc[-1]['close'], 'stock_code': thscode.split('.')[0]}
         if strategy_type == 'full':
-            signals = check_touch_type(df, thscode, '日线', gp_row)
-        else:
-            signals = check_touch_type_pure(df, thscode, '日线', gp_row)
+            signals = check_touch_type(df, thscode, '日线', gp_row, tactics_df)
+
         return signals if signals is not None and not signals.empty else None
     except Exception as e:
         print(f"❌ 组合图形检测 {thscode} 失败: {e}")
@@ -325,10 +263,16 @@ def run_combined_strategy_on_stock_list_parallel(thscode_list, lookback_days=300
     """
     多线程并行执行组合图形策略
     """
+    # 先一次性获取所有基础图形数据
+    tactics_df = get_tactics_data('tactics', '日线')
+    if tactics_df.empty:
+        print("⚠️ 无基础图形数据，跳过组合图形检测")
+        return pd.DataFrame()
+
     all_signals = []
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = {
-            executor.submit(run_combined_strategy_on_stock_parallel, thscode, lookback_days, strategy_type): thscode
+            executor.submit(run_combined_strategy_on_stock_parallel, thscode, lookback_days, strategy_type, tactics_df): thscode
             for thscode in thscode_list
         }
         for future in as_completed(futures):

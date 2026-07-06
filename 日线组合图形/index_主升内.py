@@ -49,7 +49,7 @@ def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
         # 4. 遍历每个空头图形（从最新开始）
         for _, sell_row in sell_tactics.iterrows():
             sell_date = sell_row['date']
-            sell_top_price = sell_row['u形图形_内突_u_top_price']  # 背部价格（阻力位）
+            sell_top_price = sell_row['u形图形_内突_u_top_price']  # 背部价格（阻力位） 
             sell_price = sell_row['u形图形_内突_u_price']          # 卖的价格（突破位）
             sell_point = sell_row['u形图形_内突_u_point']          # 空头图形形成的时间点
 
@@ -98,7 +98,10 @@ def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
                 # 检查是否有任意多头图形的 u_price 在 sell_top_price 的 ±10% 内
                 if abs(buy_price - sell_top_price) / sell_top_price <= 0.2:
                     # 找到符合条件的组合（这是最新的）
-                    return {
+
+                    #多头的U_price价格必须过前方U的一半
+                    if buy_price > (sell_top_price - sell_price) / 2 + sell_price:
+                        return {
                         'date': latest_date,
                         'symbol': symbol,
                         'touch_type': '主升内',
