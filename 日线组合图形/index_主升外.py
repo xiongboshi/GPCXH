@@ -46,27 +46,30 @@ def check_Double_U_主升外(df, symbol, time_type, tactics_df, gp_row):
             return touch_to_save
 
 
-        # 4. 遍历每个空头图形（从最新开始）
+        # 4. 遍历每个多头图形（从最新开始）
         for _, buy_row in buy_tactics.iterrows():
             buy_date = buy_row['date']
             buy_bot_price = buy_row['u形图形_内突_u_bot_price']  # 背部价格（阻力位）
             buy_price = buy_row['u形图形_内突_u_price']          # 卖的价格（突破位）
             buy_point = buy_row['u形图形_内突_u_point']          # 多头图形形成的时间点
+            buy_k_num = buy_row['u形图形_内突_u_k_num']          # 多头图形形成的时间点
 
             if pd.isna(buy_bot_price) or buy_bot_price == 0:
                 continue
 
+            #第一个U形的k线数量必须大于20
+            if buy_k_num < 20:
+                continue
 
             # 验证：从 buy_date 之后（不含当天）到最新的K线最低价是否 > buy_price
             future_buy = buy_tactics[pd.to_datetime(buy_tactics['u形图形_内突_u_point']) > pd.to_datetime(buy_date)]  # ✅ 不含当天
             if future_buy.empty:
                 continue
 
-            # print(future_buy)
-
             for _, future_row in future_buy.iterrows():
 
                 future_price = future_row['u形图形_内突_u_price']
+                future_date = future_row['date']
 
                 # 条件1：第二个u_price > 第一个u_price
                 if future_price < buy_price:
@@ -78,26 +81,37 @@ def check_Double_U_主升外(df, symbol, time_type, tactics_df, gp_row):
                     continue
 
                 ratio = abs(back_price_j - buy_price) / buy_price
-                if ratio <= 0.10:
-                    # 找到符合条件的配对，返回信号（取最新日期）
-                    latest_date = df['date'].iloc[0]  # df已反转，iloc[0]为最新
-                    return {
-                        'date': latest_date,
-                        'symbol': symbol,
-                        'touch_type': '主升外',
-                        'time_type': time_type,
-                        'direction': '买',
-                        '小的_U形_datetime': future_row['date'],
-                        '小的_U形_point_time': future_row['u形图形_内突_u_point'],
-                        '小的_U形_u_price': future_price,
-                        '小的_U形_n_price': future_row['u形图形_内突_u_bot_price'],
-                        '小的_U形_k_num': future_row['u形图形_内突_u_k_num'],
-                        '大的_U形_datetime': buy_row['date'],
-                        '大的_U形_point_time': buy_row['u形图形_内突_u_point'],
-                        '大的_U形_u_price': buy_price,
-                        '大的_U形_n_price': buy_row['u形图形_内突_u_bot_price'],
-                        '大的_U形_k_num': buy_row['u形图形_内突_u_k_num']
-                    }
+                if ratio > 0.10:
+                    continue
+
+                #条件3：第二个U形的date之后的最低价格不能小于第一个U的bot价格,U图形失效
+                filtered_df = df[pd.to_datetime(df['date']) > pd.to_datetime(future_date)]
+                if not filtered_df.empty:
+                    min_low = filtered_df['low'].min()
+                if min_low <= buy_bot_price:
+                    print(f"条件3不满足：{symbol} 第二个U形的date之后的最低价格 {min_low} <= 第一个U的bot价格 {buy_bot_price}")
+                    continue
+
+
+                # 找到符合条件的配对，返回信号（取最新日期）
+                latest_date = df['date'].iloc[0]  # df已反转，iloc[0]为最新
+                return {
+                    'date': latest_date,
+                    'symbol': symbol,
+                    'touch_type': '主升外',
+                    'time_type': time_type,
+                    'direction': '买',
+                    '小的_U形_datetime': future_row['date'],
+                    '小的_U形_point_time': future_row['u形图形_内突_u_point'],
+                    '小的_U形_u_price': future_price,
+                    '小的_U形_n_price': future_row['u形图形_内突_u_bot_price'],
+                    '小的_U形_k_num': future_row['u形图形_内突_u_k_num'],
+                    '大的_U形_datetime': buy_row['date'],
+                    '大的_U形_point_time': buy_row['u形图形_内突_u_point'],
+                    '大的_U形_u_price': buy_price,
+                    '大的_U形_n_price': buy_row['u形图形_内突_u_bot_price'],
+                    '大的_U形_k_num': buy_row['u形图形_内突_u_k_num']
+                }
 
         return touch_to_save
 

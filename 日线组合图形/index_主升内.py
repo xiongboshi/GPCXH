@@ -70,20 +70,38 @@ def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
                 (stock_tactics['direction'] == '买') &
                 (pd.to_datetime(stock_tactics['u形图形_内突_u_point']) > pd.to_datetime(sell_point))
             ]
-            print(f"检查 {symbol} 的空头图形日期 {sell_date} 后的多头图形数量: {len(buy_tactics)}")
-            print(buy_tactics)
             if buy_tactics.empty:
                 continue
 
-            # 检查是否有任意多头图形的 u_price 在 sell_top_price 的 ±10% 内
+            
             for _, buy_row in buy_tactics.iterrows():
+
                 buy_price = buy_row['u形图形_内突_u_price']
-                if abs(buy_price - sell_top_price) / sell_top_price <= 0.1:
+                buy_point = buy_row['u形图形_内突_u_point']          # 多头图形形成的时间点
+                
+
+                #条件3：第一个U形的date之后的最低价格不能小于第一个U的bot价格,U图形失效
+                days_before = 6  # 给个缓冲时间
+                # 计算 buy_point 减去 days_before 天的日期
+                buy_point_before = pd.to_datetime(buy_point) - pd.Timedelta(days=days_before)
+
+                filtered_df = df[(pd.to_datetime(df['date']) > pd.to_datetime(sell_date)) &
+                                 (pd.to_datetime(df['date']) < buy_point_before)]
+                if filtered_df.empty:
+                    continue
+                max_high = filtered_df['high'].max()
+                if max_high > sell_top_price:
+                    print(f"条件3不满足：{symbol} 第一个U形的date之后到第二个U的point时间之间的最高价格 {max_high} > 第一个U的top价格 {sell_top_price}")
+                    continue
+
+
+                # 检查是否有任意多头图形的 u_price 在 sell_top_price 的 ±10% 内
+                if abs(buy_price - sell_top_price) / sell_top_price <= 0.2:
                     # 找到符合条件的组合（这是最新的）
                     return {
                         'date': latest_date,
                         'symbol': symbol,
-                        'touch_type': '主升',
+                        'touch_type': '主升内',
                         'time_type': time_type,
                         'direction': '买',
                         '小的_U形_datetime': buy_row['date'],
@@ -101,5 +119,5 @@ def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
         return touch_to_save
 
     except Exception as e:
-        print(f"计算策略函数（check_Double_U_主升）出错: {e}")
+        print(f"计算策略函数（check_Double_U_主升内）出错: {e}")
         return touch_to_save

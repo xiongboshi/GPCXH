@@ -93,10 +93,12 @@ class DuckDBManager:
         返回: True表示排除，False表示保留
         """
         ticker = thscode.split('.')[0] if '.' in thscode else thscode
+        suffix = thscode.split('.')[1] if '.' in thscode else ''
         
-        # 1. 排除北交所 (8开头)
-        if self.filter_config.get('exclude_bj', True) and ticker.startswith('8'):
-            return True
+        # 1. 排除北交所 (8开头 或 .BJ 后缀)
+        if self.filter_config.get('exclude_bj', True):
+            if ticker.startswith('8') or suffix.upper() == 'BJ':
+                return True
         
         # 2. 排除创业板 (300, 301开头)
         if self.filter_config.get('exclude_cyb', True) and ticker.startswith(('300', '301')):
@@ -141,7 +143,7 @@ class DuckDBManager:
         
         for i, thscode in enumerate(tickers):
             name = names[i] if names and i < len(names) else ''
-            
+
             # 1. 检查代码是否被排除（科创板、创业板、北交所）
             if self.should_exclude_stock(thscode):
                 skipped_count += 1
