@@ -26,8 +26,8 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
         max_callback_arr_sell = []
         
         # 对前面300的每一个数据进行检查,现在是计算自身长度
-        all_k_num = int(len(df) * 0.6)
-        zc_k_num = int(len(df) * 0.38)  #支撑查看k线数
+        all_k_num = int(len(df) * 0.7)
+        zc_k_num = int(len(df) * 0.28)  #支撑查看k线数
             
         # 获取最后一根K线的收盘价
         last_row_close = df['close'].iloc[-1]
@@ -60,7 +60,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
                     # 多头判断的额外条件
                     max_deviation_long = (range_of_interest - prev_row_high).max()  # 计算区间内与U形前高点的close价格之差的最大值
                     # 多头条件：90%以上的价格需要小于等于最后一根K线的close价格
-                    if long_condition >= 0.8 and max_deviation_long <= 1.0:
+                    if long_condition >= 0.9 and max_deviation_long <= 1.0:
                         # 最后一根与当前i根线之间的区间数据
                         range_of_interest = df['low'].iloc[-i - 1:-1]
                         min_price_within_range = range_of_interest.min()  # 多头情况：取U最低价
@@ -89,7 +89,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
                                 # is_zc = (prev_row_high - now_row_high) / (prev_row_high - min_price_within_range) >= 0.9
                                 #支持
                                 if prev_row_high != min_price_within_range:  # 除数不为零
-                                    is_zc = (prev_row_high - now_row_low) / (prev_row_high - min_price_within_range) >= 0.9
+                                    is_zc = (prev_row_high - now_row_low) / (prev_row_high - min_price_within_range) >= 0.5  #支撑
                                 else:
                                     continue
                                     
@@ -138,7 +138,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
                     # 空头判断的额外条件
                     min_deviation_short = (range_of_interest - prev_row_low).min()  # 计算区间内与U形前高点的close价格之差的最小值
                     # 空头条件：90%以上的价格需要大于等于最后一根K线的close价格
-                    if short_condition >= 0.8 and min_deviation_short >= -1.0:
+                    if short_condition >= 0.9 and min_deviation_short >= -1.0:
                         # 最后一根与当前i根线之间的区间数据
                         range_of_interest = df['high'].iloc[-i - 1:-1]  
                         max_price_within_range = range_of_interest.max()  # 空头情况：取U最高价
@@ -166,7 +166,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
                                 # is_zc = (now_row_low - prev_row_low) / (max_price_within_range - prev_row_low) >= 0.3
                                 #支持
                                 if prev_row_low != max_price_within_range:  # 除数不为零
-                                    is_zc = (now_row_high - prev_row_low) / (max_price_within_range - prev_row_low) >= 0.9
+                                    is_zc = (now_row_high - prev_row_low) / (max_price_within_range - prev_row_low) >= 1.1  #支撑
                                 else:
                                     continue
                                 
@@ -209,7 +209,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
                 'u形图形_内突_u_bot_price',
                 'u形图形_内突_u_top_price'
             ]
-            drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='last')
+            drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='first')
             #保存
             save_shape_data(pd.DataFrame(drop_callback_df),'tactics', columns_dp)
         
@@ -224,7 +224,7 @@ def inside_break(df: pd.DataFrame, time_type) -> pd.DataFrame:
                 'u形图形_内突_u_bot_price',
                 'u形图形_内突_u_top_price'
             ]
-            drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='last')
+            drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='first')
             #保存
             save_shape_data(pd.DataFrame(drop_callback_df),'tactics', columns_dp)
             

@@ -33,8 +33,8 @@ def inside_break_all(df: pd.DataFrame, time_type, num_check_points=150):
             last_row_time = df_sub['date'].iloc[-1]
 
             # 检测参数（基于子DataFrame长度动态计算）
-            all_k_num = int(len(df_sub) * 0.6)
-            zc_k_num = int(len(df_sub) * 0.38)
+            all_k_num = int(len(df_sub) * 0.7)
+            zc_k_num = int(len(df_sub) * 0.28)
             look_k_num = 6
 
             # 以下代码完全复制自原始 inside_break，未作任何修改
@@ -64,7 +64,7 @@ def inside_break_all(df: pd.DataFrame, time_type, num_check_points=150):
                                 if now_row_high > prev_row_high:
                                     break
                                 if prev_row_high != min_price_within_range:
-                                    is_zc = (prev_row_high - now_row_low) / (prev_row_high - min_price_within_range) >= 1.1  #支撑
+                                    is_zc = (prev_row_high - now_row_low) / (prev_row_high - min_price_within_range) >= 0.5  #支撑
                                 else:
                                     continue
                                 if is_zc:
@@ -153,13 +153,13 @@ def inside_break_all(df: pd.DataFrame, time_type, num_check_points=150):
         if len(max_callback_arr_buy) > 0:
             max_callback_df = pd.DataFrame(max_callback_arr_buy)
             columns_to_check = ['symbol', 'time_type', 'direction', 'u形图形_内突_u_price', 'u形图形_内突_u_bot_price', 'u形图形_内突_u_top_price']
-            drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='last')
+            drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='first')
             save_shape_data(pd.DataFrame(drop_callback_df), 'tactics', columns_dp)
 
         if len(max_callback_arr_sell) > 0:
             max_callback_df = pd.DataFrame(max_callback_arr_sell)
             columns_to_check = ['symbol', 'time_type', 'direction', 'u形图形_内突_u_price', 'u形图形_内突_u_bot_price', 'u形图形_内突_u_top_price']
-            drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='last')
+            drop_callback_df = max_callback_df.drop_duplicates(subset=columns_to_check, keep='first')
             save_shape_data(pd.DataFrame(drop_callback_df), 'tactics', columns_dp)
 
         return df

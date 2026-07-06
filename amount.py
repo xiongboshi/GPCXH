@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 策略检测模块（请确保这些模块存在）
 from 日线组合图形.index_主升内 import check_Double_U_主升内    
+from 日线组合图形.index_主升外 import check_Double_U_主升外
 # from 日线组合图形.index_双炮台 import check_bowl_shaped_双炮台
 # from 日线组合图形.index_仙人指路 import check_bowl_shaped_仙人指路
 # from 日线组合图形.index_突破即回调 import check_bowl_shaped_突破即回调
@@ -87,6 +88,7 @@ def check_touch_type(df, symbol, time_type, gp_row):
         with ThreadPoolExecutor() as executor:
             strategies = [
                 executor.submit(check_Double_U_主升内, df, symbol, time_type, tactics_df, gp_row),
+                # executor.submit(check_Double_U_主升外, df, symbol, time_type, tactics_df, gp_row),
                 # 如需启用其他策略，取消注释：
                 # executor.submit(check_Double_U_双U形, df, symbol, time_type, tactics_df, gp_row),
                 # executor.submit(check_bowl_shaped_双炮台, df, symbol, time_type, tactics_df, gp_row),

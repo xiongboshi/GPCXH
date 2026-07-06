@@ -221,7 +221,7 @@ def get_tactics():
             db.close()
             return jsonify([])
         df = db.execute("""
-            SELECT symbol, date, direction, u形图形_内突_u_point, u形图形_内突_u_price,
+            SELECT symbol, date, direction, u形图形_内突_u_point, u形图形_内突_u_price, u形图形_内突_u_k_num,
                    u形图形_内突_u_bot_price, u形图形_内突_u_top_price, time_type
             FROM tactics
             ORDER BY date DESC
