@@ -391,15 +391,14 @@ def run_strategy_parallel():
     
 
 
+from database.shape_storage import clear_combined_table
+
 @app.route('/api/clear_combined', methods=['POST'])
 def clear_combined():
-    db = get_db()
     try:
-        db.execute("DELETE FROM tactics_zhtx")
-        db.close()
+        clear_combined_table()  # 调用我们修改过的函数，它会自动处理表不存在的情况
         return jsonify({'success': True, 'message': '组合图形表已清空'})
     except Exception as e:
-        db.close()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

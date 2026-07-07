@@ -91,7 +91,7 @@ def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
                     continue
                 max_high = filtered_df['high'].max()
                 if max_high > sell_top_price:
-                    print(f"条件3不满足：{symbol} 第一个U形的date之后到第二个U的point时间之间的最高价格 {max_high} > 第一个U的top价格 {sell_top_price}")
+                    # print(f"条件3不满足：{symbol} 第一个U形的date之后到第二个U的point时间之间的最高价格 {max_high} > 第一个U的top价格 {sell_top_price}")
                     continue
 
 

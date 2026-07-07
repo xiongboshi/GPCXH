@@ -88,7 +88,7 @@ def check_Double_U_主升六外(df, symbol, time_type, tactics_df, gp_row):
             if not filtered_df.empty:
                 min_low = filtered_df['low'].min()
             if min_low <= buy_bot_price:
-                print(f"条件3不满足：{symbol} 第一个U形的date之后的最低价格 {min_low} <= 第一个U的bot价格 {buy_bot_price}")
+                # print(f"条件3不满足：{symbol} 第一个U形的date之后的最低价格 {min_low} <= 第一个U的bot价格 {buy_bot_price}")
                 continue
 
             
