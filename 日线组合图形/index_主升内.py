@@ -78,7 +78,38 @@ def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
 
                 buy_price = buy_row['u形图形_内突_u_price']
                 buy_point = buy_row['u形图形_内突_u_point']          # 多头图形形成的时间点
+                buy_bot_price = buy_row['u形图形_内突_u_bot_price']
+                buy_date = buy_row['date']     
+
                 
+                # 条件0.9: 检查buy多头的支撑是否有效和空头的支撑是否穿透再回来
+                past_df = df[(pd.to_datetime(df['date']) > pd.to_datetime(sell_date)) &
+                             (pd.to_datetime(df['date']) < pd.to_datetime(buy_point))]
+                if not past_df.empty:
+                    min_low_past = past_df['low'].min()
+                    if min_low_past > buy_bot_price: #无效支撑跳过
+                        continue
+                    if min_low_past > sell_price: #无效穿透
+                        continue
+
+                # 条件1: 检查buy_date时间之后的最低价格是否又回调了很多，多U就失效了
+                past_df = df[pd.to_datetime(df['date']) > pd.to_datetime(buy_date)]
+                if not past_df.empty:
+                    min_low_past = past_df['low'].min()
+                    if buy_bot_price - min_low_past >= buy_price - buy_bot_price:
+                        continue
+
+                
+                # 条件2：检查 buy_point 之前是否有超过10%的K线最高价大于 buy_price
+                past_df = df[pd.to_datetime(df['date']) < pd.to_datetime(buy_point)]
+                if not past_df.empty:
+                    total_bars = len(past_df)
+                    high_above_count = (past_df['high'] > buy_price).sum()
+                    if high_above_count / total_bars > 0.20:   # 比例超过20%则跳过
+                        continue
+                else:
+                    continue   # 无历史数据，可根据需求决定是否跳过（通常可视为不满足）
+                            
 
                 #条件3：第一个U形的date之后的最低价格不能小于第一个U的bot价格,U图形失效
                 days_before = 6  # 给个缓冲时间
@@ -95,11 +126,11 @@ def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
                     continue
 
 
-                # 检查是否有任意多头图形的 u_price 在 sell_top_price 的 ±10% 内
+                #条件4： 检查是否有任意多头图形的 u_price 在 sell_top_price 的 ±10% 内
                 if abs(buy_price - sell_top_price) / sell_top_price <= 0.2:
                     # 找到符合条件的组合（这是最新的）
 
-                    #多头的U_price价格必须过前方U的2/3
+                    #条件5：多头的U_price价格必须过前方U的2/3
                     if buy_price > (sell_top_price - sell_price) / 3 * 2 + sell_price:
                         return {
                         'date': latest_date,
