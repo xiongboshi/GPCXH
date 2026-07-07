@@ -613,7 +613,7 @@
                 <button class="btn btn-sm btn-secondary" id="btnCloseCombined">✕ 关闭</button>
             </div>
             <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
-                <input type="text" id="combinedSearchInput" placeholder="🔍 搜索代码..." style="flex:1;">
+                <input type="text" id="combinedSearchInput" placeholder="🔍 搜索代码,形态类型 ..." style="flex:1;">
                 <button class="btn btn-sm btn-secondary" id="btnClearCombinedSearch" style="padding:6px 16px;">✕
                     清除</button>
             </div>
@@ -762,22 +762,22 @@
             }
         }
 
-        document.getElementById('btnUpdateKline').addEventListener('click', function(e) {
+        document.getElementById('btnUpdateKline').addEventListener('click', function (e) {
             runMaintenance('/api/update_kline', this, '盘后更新K线');
         });
-        document.getElementById('btnUpdateSnapshot').addEventListener('click', function(e) {
+        document.getElementById('btnUpdateSnapshot').addEventListener('click', function (e) {
             runMaintenance('/api/update_snapshot', this, '盘中更新快照');
         });
 
         // ======== 搜索逻辑 ========
-        stockInput.addEventListener('input', function() {
+        stockInput.addEventListener('input', function () {
             clearTimeout(searchTimer);
             const q = this.value.trim();
             if (q.length < 1) { suggestionsDiv.style.display = 'none'; return; }
             searchTimer = setTimeout(() => searchStocks(q), 300);
         });
 
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             if (!e.target.closest('.search-wrapper')) suggestionsDiv.style.display = 'none';
         });
 
@@ -795,7 +795,7 @@
                         const div = document.createElement('div');
                         div.className = 'item';
                         div.innerHTML = `<span class="code">${item.thscode}</span><span class="name">${item.name || ''}</span>`;
-                        div.addEventListener('click', function() {
+                        div.addEventListener('click', function () {
                             selectedStock = item;
                             stockInput.value = item.thscode + (item.name ? ' (' + item.name + ')' : '');
                             suggestionsDiv.style.display = 'none';
@@ -813,7 +813,7 @@
         }
 
         // ======== 查询按钮 ========
-        queryBtn.addEventListener('click', function() {
+        queryBtn.addEventListener('click', function () {
             const code = selectedStock ? selectedStock.thscode : null;
             if (!code) { alert('请先搜索并选择一只股票'); return; }
             const limit = limitSelect.value;
@@ -842,7 +842,7 @@
                 });
         });
 
-        stockInput.addEventListener('keydown', function(e) {
+        stockInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 if (selectedStock) { queryBtn.click(); } else {
@@ -858,7 +858,7 @@
         const btnCloseLimitUp = document.getElementById('btnCloseLimitUp');
         const limitUpTableBody = document.getElementById('limitUpTableBody');
 
-        btnLimitUp.addEventListener('click', function() {
+        btnLimitUp.addEventListener('click', function () {
             fetch('/api/limit_up_stocks')
                 .then(res => res.json())
                 .then(data => {
@@ -886,7 +886,7 @@
                 .catch(err => { alert('加载涨停股票失败: ' + err.message); });
         });
 
-        btnCloseLimitUp.addEventListener('click', function() {
+        btnCloseLimitUp.addEventListener('click', function () {
             limitUpArea.classList.add('hidden');
         });
 
@@ -947,7 +947,7 @@
                     tr.dataset.symbol = item.symbol;
                     tr.dataset.date = item.date;
                     tr.dataset.upoint = item.u形图形_内突_u_point || '';
-                    tr.addEventListener('click', function() {
+                    tr.addEventListener('click', function () {
                         document.querySelectorAll('#tacticsTableBody tr').forEach(row => row.classList.remove('selected'));
                         this.classList.add('selected');
                         loadKlineWithTactics(this);
@@ -985,20 +985,20 @@
         }
 
         // 分页事件绑定
-        tacticsPrevPage.addEventListener('click', function() {
+        tacticsPrevPage.addEventListener('click', function () {
             if (tacticsCurrentPage > 1) {
                 tacticsCurrentPage--;
                 renderTacticsTable();
             }
         });
-        tacticsNextPage.addEventListener('click', function() {
+        tacticsNextPage.addEventListener('click', function () {
             const totalPages = Math.ceil(tacticsFilteredData.length / tacticsPageSize) || 1;
             if (tacticsCurrentPage < totalPages) {
                 tacticsCurrentPage++;
                 renderTacticsTable();
             }
         });
-        tacticsPageInput.addEventListener('change', function() {
+        tacticsPageInput.addEventListener('change', function () {
             let page = parseInt(this.value);
             const totalPages = Math.ceil(tacticsFilteredData.length / tacticsPageSize) || 1;
             if (isNaN(page) || page < 1) page = 1;
@@ -1008,7 +1008,7 @@
         });
 
         // 搜索过滤（基础策略）
-        tacticsSearchInput.addEventListener('input', function() {
+        tacticsSearchInput.addEventListener('input', function () {
             const keyword = this.value.trim().toLowerCase();
             if (!keyword) {
                 tacticsFilteredData = tacticsData.slice();
@@ -1018,7 +1018,7 @@
             tacticsCurrentPage = 1;
             renderTacticsTable();
         });
-        btnClearTacticsSearch.addEventListener('click', function() {
+        btnClearTacticsSearch.addEventListener('click', function () {
             tacticsSearchInput.value = '';
             tacticsFilteredData = tacticsData.slice();
             tacticsCurrentPage = 1;
@@ -1046,7 +1046,7 @@
         }
 
         // ======== 基础策略按钮事件 ========
-        document.getElementById('btnRunStrategyParallel').addEventListener('click', function() {
+        document.getElementById('btnRunStrategyParallel').addEventListener('click', function () {
             const btn = this;
             const strategyType = 'full';
 
@@ -1095,7 +1095,7 @@
         });
 
         // 单股检测
-        document.getElementById('btnRunSingleStock').addEventListener('click', function() {
+        document.getElementById('btnRunSingleStock').addEventListener('click', function () {
             const codeInput = document.getElementById('singleStockInput').value.trim();
             if (!codeInput) {
                 appendLog('❌ 请输入代码', 'error');
@@ -1150,7 +1150,7 @@
                 });
         });
 
-        btnCloseTactics.addEventListener('click', function() {
+        btnCloseTactics.addEventListener('click', function () {
             tacticsArea.classList.add('hidden');
         });
 
@@ -1184,7 +1184,7 @@
                     tr.dataset.sellPrice = item.大的_U形_u_price || '';
                     tr.dataset.sellPoint = item.大的_U形_point_time || '';
                     tr.dataset.buyPoint = item.小的_U形_point_time || '';
-                    tr.addEventListener('click', function() {
+                    tr.addEventListener('click', function () {
                         // 移除其他行的选中样式
                         document.querySelectorAll('#combinedTableBody tr').forEach(row => row.classList.remove('selected'));
                         this.classList.add('selected');
@@ -1215,20 +1215,20 @@
         }
 
         // 组合图形分页事件绑定
-        combinedPrevPage.addEventListener('click', function() {
+        combinedPrevPage.addEventListener('click', function () {
             if (combinedCurrentPage > 1) {
                 combinedCurrentPage--;
                 renderCombinedTable();
             }
         });
-        combinedNextPage.addEventListener('click', function() {
+        combinedNextPage.addEventListener('click', function () {
             const totalPages = Math.ceil(combinedFilteredData.length / combinedPageSize) || 1;
             if (combinedCurrentPage < totalPages) {
                 combinedCurrentPage++;
                 renderCombinedTable();
             }
         });
-        combinedPageInput.addEventListener('change', function() {
+        combinedPageInput.addEventListener('change', function () {
             let page = parseInt(this.value);
             const totalPages = Math.ceil(combinedFilteredData.length / combinedPageSize) || 1;
             if (isNaN(page) || page < 1) page = 1;
@@ -1238,17 +1238,21 @@
         });
 
         // 搜索过滤（组合图形）
-        combinedSearchInput.addEventListener('input', function() {
+        combinedSearchInput.addEventListener('input', function () {
             const keyword = this.value.trim().toLowerCase();
             if (!keyword) {
                 combinedFilteredData = combinedData.slice();
             } else {
-                combinedFilteredData = combinedData.filter(item => item.symbol.toLowerCase().includes(keyword));
+                combinedFilteredData = combinedData.filter(item =>
+                    item.symbol.toLowerCase().includes(keyword) ||
+                    (item.touch_type && item.touch_type.toLowerCase().includes(keyword))
+                );
             }
             combinedCurrentPage = 1;
             renderCombinedTable();
         });
-        btnClearCombinedSearch.addEventListener('click', function() {
+
+        btnClearCombinedSearch.addEventListener('click', function () {
             combinedSearchInput.value = '';
             combinedFilteredData = combinedData.slice();
             combinedCurrentPage = 1;
@@ -1276,7 +1280,7 @@
         }
 
         // 组合图形单线程按钮
-        btnRunCombined.addEventListener('click', function() {
+        btnRunCombined.addEventListener('click', function () {
             const btn = this;
             const strategyType = 'full';
             if (!combinedArea.classList.contains('hidden')) {
@@ -1313,7 +1317,7 @@
         });
 
         // 组合图形多线程按钮
-        document.getElementById('btnRunCombinedParallel').addEventListener('click', function() {
+        document.getElementById('btnRunCombinedParallel').addEventListener('click', function () {
             const btn = this;
             const strategyType = 'full';
             const numWorkers = 8;
@@ -1362,7 +1366,7 @@
                 });
         });
 
-        btnCloseCombined.addEventListener('click', function() {
+        btnCloseCombined.addEventListener('click', function () {
             combinedArea.classList.add('hidden');
         });
 
@@ -1566,7 +1570,7 @@
                 tooltip: {
                     trigger: 'axis',
                     axisPointer: { type: 'cross' },
-                    formatter: function(params) {
+                    formatter: function (params) {
                         const idx = params[0].dataIndex;
                         const d = data[idx];
                         if (!d) return '';
@@ -1638,7 +1642,7 @@
                         itemStyle: { color: '#f0b90b' },
                         label: {
                             show: true,
-                            formatter: function(params) { return params.data.label; },
+                            formatter: function (params) { return params.data.label; },
                             color: '#fff',
                             fontSize: 10,
                             fontWeight: 'bold',
@@ -1661,7 +1665,7 @@
                     yAxisIndex: 1,
                     barWidth: '60%',
                     itemStyle: {
-                        color: function(params) {
+                        color: function (params) {
                             const idx = params.dataIndex;
                             return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
                         }
@@ -1695,7 +1699,7 @@
             }).join('');
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             stockInput.focus();
             clearLog();
             appendLog('系统就绪', 'info');

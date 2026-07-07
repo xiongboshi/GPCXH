@@ -99,8 +99,8 @@ def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
                 if abs(buy_price - sell_top_price) / sell_top_price <= 0.2:
                     # 找到符合条件的组合（这是最新的）
 
-                    #多头的U_price价格必须过前方U的一半
-                    if buy_price > (sell_top_price - sell_price) / 2 + sell_price:
+                    #多头的U_price价格必须过前方U的2/3
+                    if buy_price > (sell_top_price - sell_price) / 3 * 2 + sell_price:
                         return {
                         'date': latest_date,
                         'symbol': symbol,

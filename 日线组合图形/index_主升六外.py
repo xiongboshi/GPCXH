@@ -76,8 +76,12 @@ def check_Double_U_主升六外(df, symbol, time_type, tactics_df, gp_row):
                 if not prev_rows.empty:
                     prev_close = prev_rows.iloc[-1]['close']  # 最近一个交易日收盘价
                     if prev_close < buy_price:
-                        valid_future.append(krow)
-                        break  # 一旦找到满足条件的涨停K线，就可以跳出，取最早的或任意一个
+                        # 附加条件：多头的date之后到当前涨停之间的k线的最大值不能超过涨停价格
+                        max_high_between = df_sorted[(pd.to_datetime(df_sorted['date']) > pd.to_datetime(buy_date)) &
+                                                     (pd.to_datetime(df_sorted['date']) < pd.to_datetime(krow['date']))]['high'].max()
+                        if max_high_between <= krow['high']:
+                            valid_future.append(krow)
+                            break  # 一旦找到满足条件的涨停K线，就可以跳出，取最早的或任意一个
 
             if not valid_future:
                 continue
