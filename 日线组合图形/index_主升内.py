@@ -96,7 +96,7 @@ def check_Double_U_主升内(df, symbol, time_type, tactics_df, gp_row):
                 past_df = df[pd.to_datetime(df['date']) > pd.to_datetime(buy_date)]
                 if not past_df.empty:
                     min_low_past = past_df['low'].min()
-                    if buy_bot_price - min_low_past >= buy_price - buy_bot_price:
+                    if buy_bot_price - min_low_past >= (buy_price - buy_bot_price) / 2:
                         continue
 
                 

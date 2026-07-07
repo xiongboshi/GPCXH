@@ -129,8 +129,8 @@ def check_touch_type(df, symbol, time_type, gp_row, tactics_df):
                 unique_columns = ['symbol', 'touch_type', 'time_type', 'direction', 
                                   '小的_U形_u_price', '大的_U形_datetime']
                 df_unique = filtered_data.drop_duplicates(subset=unique_columns, keep='last')
-                print('✅ 发现新形态信号：')
-                print(df_unique)
+                # print('✅ 发现新形态信号：')
+                # print(df_unique)
                 # 组合图形
                 save_shape_data(df_unique, 'tactics_zhtx', 'symbol, time_type, touch_type')
                 # ✅ 返回信号 DataFrame

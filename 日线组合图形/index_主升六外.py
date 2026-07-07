@@ -68,7 +68,9 @@ def check_Double_U_主升六外(df, symbol, time_type, tactics_df, gp_row):
                                    (df_sorted['pctChg'] > 9.8)]  # ✅ 不含当天,突破涨停
             if future_rows.empty:
                 continue
-            # 条件2：进一步筛选：前一天收盘价 < buy_price
+
+
+            # 条件3：进一步筛选：前一天收盘价 < buy_price
             valid_future = []
             for idx, krow in future_rows.iterrows():
                 # 找到该日期之前的最近一个交易日
@@ -76,12 +78,12 @@ def check_Double_U_主升六外(df, symbol, time_type, tactics_df, gp_row):
                 if not prev_rows.empty:
                     prev_close = prev_rows.iloc[-1]['close']  # 最近一个交易日收盘价
                     if prev_close < buy_price:
-                        # 附加条件：多头的date之后到当前涨停之间的k线的最大值不能超过涨停价格
-                        max_high_between = df_sorted[(pd.to_datetime(df_sorted['date']) > pd.to_datetime(buy_date)) &
-                                                     (pd.to_datetime(df_sorted['date']) < pd.to_datetime(krow['date']))]['high'].max()
-                        if max_high_between <= krow['high']:
-                            valid_future.append(krow)
-                            break  # 一旦找到满足条件的涨停K线，就可以跳出，取最早的或任意一个
+                        # # 附加条件：多头的date之后到当前涨停之间的k线的最大值不能超过涨停价格
+                        # max_high_between = df_sorted[(pd.to_datetime(df_sorted['date']) > pd.to_datetime(buy_date)) &
+                        #                              (pd.to_datetime(df_sorted['date']) < pd.to_datetime(krow['date']))]['high'].max()
+                        # if max_high_between <= krow['high']:
+                        valid_future.append(krow)
+                        break  # 一旦找到满足条件的涨停K线，就可以跳出，取最早的或任意一个
 
             if not valid_future:
                 continue
@@ -91,9 +93,9 @@ def check_Double_U_主升六外(df, symbol, time_type, tactics_df, gp_row):
             filtered_df = df[pd.to_datetime(df['date']) > pd.to_datetime(buy_date)]
             if not filtered_df.empty:
                 min_low = filtered_df['low'].min()
-            if min_low <= buy_bot_price:
-                # print(f"条件3不满足：{symbol} 第一个U形的date之后的最低价格 {min_low} <= 第一个U的bot价格 {buy_bot_price}")
-                continue
+                if min_low <= buy_bot_price:
+                    # print(f"条件3不满足：{symbol} 第一个U形的date之后的最低价格 {min_low} <= 第一个U的bot价格 {buy_bot_price}")
+                    continue
 
             
             # 找到符合条件的配对，返回信号（取最新日期）

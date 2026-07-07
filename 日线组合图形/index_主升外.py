@@ -88,9 +88,9 @@ def check_Double_U_主升外(df, symbol, time_type, tactics_df, gp_row):
                 filtered_df = df[pd.to_datetime(df['date']) > pd.to_datetime(future_date)]
                 if not filtered_df.empty:
                     min_low = filtered_df['low'].min()
-                if min_low <= buy_bot_price:
-                    # print(f"条件3不满足：{symbol} 第二个U形的date之后的最低价格 {min_low} <= 第一个U的bot价格 {buy_bot_price}")
-                    continue
+                    if min_low <= buy_bot_price:
+                        # print(f"条件3不满足：{symbol} 第二个U形的date之后的最低价格 {min_low} <= 第一个U的bot价格 {buy_bot_price}")
+                        continue
 
 
                 # 找到符合条件的配对，返回信号（取最新日期）
