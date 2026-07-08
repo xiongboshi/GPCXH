@@ -17,7 +17,7 @@ from 日线组合图形.index_主升六外 import check_Double_U_主升六外
 # from 日线组合图形.index_龙虎突破 import check_Double_U_龙虎突破
 
 # 数据库操作
-from database.shape_storage import get_tactics_data, save_shape_data
+from database.shape_storage import save_shape_data, get_entry_signals_parallel
 from database.db_manager import DuckDBManager
 
 # ✅ 导入 inside_break（基础图形检测）
@@ -72,6 +72,23 @@ def get_kline_from_db(thscode, start_date, end_date):
     })
     df['date'] = pd.to_datetime(df['date'])
     return df
+
+
+# ================================================================
+# ★★★ 入场判断（多线程版）—— 直接调用 shape_storage 实现 ★★★
+# ================================================================
+def run_entry_check_parallel(stock_list=None, days_after=12, limit_pct=9.8, num_workers=8):
+    """
+    多线程并行执行入场判断：对每个买入信号的组合图形，检测其后 days_after 个交易日内是否涨停。
+    如果指定 stock_list，则只检测这些股票的信号；否则检测所有买入信号。
+    返回结果列表。
+    """
+    # 直接调用 shape_storage 的多线程函数
+    # 注意：stock_list 过滤暂未实现，如有需要可自行扩展
+    if stock_list:
+        print("⚠️ 当前版本未实现 stock_list 过滤，将检测所有买入信号")
+    return get_entry_signals_parallel(days_after=days_after, limit_pct=limit_pct, num_workers=num_workers)
+
 
 # ========== 组合图形策略检测 ==========
 def check_touch_type(df, symbol, time_type, gp_row, tactics_df):

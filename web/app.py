@@ -520,7 +520,23 @@ def run_combined_parallel():
         traceback.print_exc()
         return jsonify({'success': False, 'message': f'组合图形并行执行异常: {str(e)}'}), 500
     
-    
+
+
+
+# 导入入场判断函数
+from amount import run_entry_check_parallel
+
+@app.route('/api/check_entry', methods=['POST'])
+def check_entry():
+    try:
+        data = request.get_json(silent=True) or {}
+        days = data.get('days', 12)
+        results = run_entry_check_parallel(days_after=days)
+        return jsonify({'success': True, 'data': results, 'count': len(results)})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 
