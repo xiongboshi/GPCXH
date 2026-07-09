@@ -92,6 +92,13 @@ def check_Double_U_主升外(df, symbol, time_type, tactics_df, gp_row):
                         # print(f"条件3不满足：{symbol} 第二个U形的date之后的最低价格 {min_low} <= 第一个U的bot价格 {buy_bot_price}")
                         continue
 
+                # #条件4：第一个U形的date之后的最高价格不能大于第一个U的上下差值,U图形失效
+                # filtered_df = df[pd.to_datetime(df['date']) > pd.to_datetime(buy_date)]
+                # if not filtered_df.empty:
+                #     max_high = filtered_df['high'].max()
+                #     if max_high - buy_price >= buy_price - buy_bot_price:
+                #         continue
+
 
                 # 找到符合条件的配对，返回信号（取最新日期）
                 latest_date = df['date'].iloc[0]  # df已反转，iloc[0]为最新

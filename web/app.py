@@ -10,7 +10,7 @@ import pandas as pd
 import subprocess
 from datetime import datetime, timedelta
 
-from database.shape_storage import drop_combined_table
+from database.shape_storage import drop_combined_table,drop_enter_table
 from database.shape_storage import get_storage  # 或直接 ShapeStorage
 
 app = Flask(__name__)
@@ -529,6 +529,10 @@ from amount import run_entry_check_parallel
 @app.route('/api/check_entry', methods=['POST'])
 def check_entry():
     try:
+        # 先清空入场信号表（确保数据干净）
+        drop_enter_table()
+        print("🗑️ 已删除旧入场信号表")
+
         data = request.get_json(silent=True) or {}
         days = data.get('days', 12)
         results = run_entry_check_parallel(days_after=days)

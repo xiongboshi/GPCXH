@@ -1457,40 +1457,42 @@
             }
             pageData.forEach(item => {
                 const tr = document.createElement('tr');
+                // ★ 使用数据库原始列名
                 tr.dataset.symbol = item.symbol;
-                tr.dataset.support = item.support_price;
-                tr.dataset.buyPoint = item.buy_point;
-                tr.dataset.buyPrice = item.buy_price;
-                tr.dataset.prevClose = item.prev_close;
-                tr.dataset.limitDate = item.limit_date;
+                tr.dataset.support = item.大的_U形_u_price;    // 支撑线
+                tr.dataset.buyPoint = item.小的_U形_point_time; // U左日期
+                tr.dataset.buyPrice = item.小的_U形_u_price;    // U左价格
+                tr.dataset.prevClose = item.prev_close || null; // 暂无
+                tr.dataset.limitDate = item.limit_date || null; // 暂无
                 tr.addEventListener('click', function () {
                     document.querySelectorAll('#entryTableBody tr').forEach(row => row.classList.remove('selected'));
                     this.classList.add('selected');
                     loadKlineWithEntry(this);
                 });
                 tr.innerHTML = `
-                    <td>${item.symbol}</td>
-                    <td>${item.touch_type || ''}</td>
-                    <td>${item.signal_date}</td>
-                    <td>${fmtPrice(item.buy_price)}</td>
-                    <td>${fmtPrice(item.support_price)}</td>
-                    <td>${item.limit_date}</td>
-                    <td>${fmtPrice(item.limit_close)}</td>
-                    <td>${fmtPrice(item.prev_close)}</td>
-                    <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
-                `;
+                <td>${item.symbol}</td>
+                <td>${item.touch_type || ''}</td>
+                <td>${item.大的_U形_datetime || ''}</td>
+                <td>${fmtPrice(item.小的_U形_u_price)}</td>
+                <td>${fmtPrice(item.大的_U形_u_price)}</td>
+                <td>${item.limit_date || ''}</td>
+                <td>${fmtPrice(item.limit_close)}</td>
+                <td>${fmtPrice(item.prev_close)}</td>
+                <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+        `;
                 entryTableBody.appendChild(tr);
             });
 
-            // 更新分页信息
-            const total = entryFilteredData.length;
-            const totalPages = Math.ceil(total / entryPageSize) || 1;
-            entryTotalPages.textContent = totalPages;
-            entryTotalRecords.textContent = total;
-            entryPageInput.value = entryCurrentPage;
-            entryPageInput.max = totalPages;
-            entryPrevPage.disabled = entryCurrentPage <= 1;
-            entryNextPage.disabled = entryCurrentPage >= totalPages;
+
+        // 更新分页信息
+        const total = entryFilteredData.length;
+        const totalPages = Math.ceil(total / entryPageSize) || 1;
+        entryTotalPages.textContent = totalPages;
+        entryTotalRecords.textContent = total;
+        entryPageInput.value = entryCurrentPage;
+        entryPageInput.max = totalPages;
+        entryPrevPage.disabled = entryCurrentPage <= 1;
+        entryNextPage.disabled = entryCurrentPage >= totalPages;
         }
 
         // 入场搜索事件

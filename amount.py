@@ -10,14 +10,13 @@ import threading
 from 日线组合图形.index_主升内 import check_Double_U_主升内    
 from 日线组合图形.index_主升外 import check_Double_U_主升外
 from 日线组合图形.index_主升六外 import check_Double_U_主升六外
-# from 日线组合图形.index_双炮台 import check_bowl_shaped_双炮台
-# from 日线组合图形.index_仙人指路 import check_bowl_shaped_仙人指路
-# from 日线组合图形.index_突破即回调 import check_bowl_shaped_突破即回调
-# from 日线组合图形.index_碗形 import check_bowl_shaped_碗形
-# from 日线组合图形.index_龙虎突破 import check_Double_U_龙虎突破
+
+from 入场判断.index import check_Enter_U
+
+
 
 # 数据库操作
-from database.shape_storage import save_shape_data, get_entry_signals_parallel
+from database.shape_storage import save_shape_data
 from database.db_manager import DuckDBManager
 
 # ✅ 导入 inside_break（基础图形检测）
@@ -77,19 +76,137 @@ def get_kline_from_db(thscode, start_date, end_date):
 # ================================================================
 # ★★★ 入场判断（多线程版）—— 直接调用 shape_storage 实现 ★★★
 # ================================================================
+def run_entry_check(tactics_df, thscode, lookback_days=300, time_type='日线'):
+    
+    """
+    检测入场判断（包含双U形、双炮台、龙虎突破等）
+    df: 包含 date, open, close, high, low, volume, pctChg 的 DataFrame
+    symbol: 股票代码（如 "000001.SZ"）
+    time_type: 周期类型（如 "日线"）
+    gp_row: 可传入股票当前行情数据（用于过滤或记录）
+    tactics_df: 基础图形数据（由外部传入，避免重复读取）
+    """
+    try:
+        pd.set_option('future.no_silent_downcasting', True)
+
+        # 1. 获取K线数据
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+        df = get_kline_from_db(thscode, start_date, end_date)
+        if df.empty or len(df) < 30:
+            print(f"⚠️ {thscode} 数据不足，跳过入场检测")
+            return []
+
+
+        data_entries = []
+
+        # 多线程执行各个策略检测（这里内部又创建了线程池，可能会嵌套，但影响不大）
+        with ThreadPoolExecutor() as executor:
+            strategies = [
+                executor.submit(check_Enter_U, df, thscode, time_type, tactics_df),
+            ]
+
+            for future in as_completed(strategies):
+                result = future.result()
+                if result and isinstance(result, dict) and not all(pd.isnull(v) for v in result.values()):
+                    data_entries.append(result)
+
+        if data_entries:
+            new_data_df = pd.DataFrame(data_entries).replace('', np.nan)
+            filtered_data = new_data_df.dropna(how='all')
+            if not filtered_data.empty:
+                # 去重并保存
+                unique_columns = ['symbol', 'touch_type', 'time_type', 'direction', 
+                                  '小的_U形_u_price', '大的_U形_datetime']
+                # print('✅ 发现新入场信号：')
+                # print(df_unique)
+                # 入场信号图形
+                df_unique = filtered_data.drop_duplicates(subset=unique_columns, keep='last')
+                return df_unique   # 只返回，不保存
+
+        # ✅ 无信号返回空 DataFrame
+        return pd.DataFrame()
+
+    except Exception as e:
+        print(f"❌ 策略检测出错: {e}")
+        return pd.DataFrame()
+    
+
+
 def run_entry_check_parallel(stock_list=None, days_after=12, limit_pct=9.8, num_workers=8):
     """
-    多线程并行执行入场判断：对每个买入信号的组合图形，检测其后 days_after 个交易日内是否涨停。
-    如果指定 stock_list，则只检测这些股票的信号；否则检测所有买入信号。
-    返回结果列表。
+    多线程并行执行入场判断：
+    1. 对每只股票执行入场条件的策略检测，生成买入信号并保存到 tactics_enter 表。
+    2. 所有线程完成后，从 tactics_enter 表读取数据，进行涨停检测。
+    返回所有符合条件的信号列表（字典列表）。
     """
-    # 直接调用 shape_storage 的多线程函数
-    # 注意：stock_list 过滤暂未实现，如有需要可自行扩展
-    if stock_list:
-        print("⚠️ 当前版本未实现 stock_list 过滤，将检测所有买入信号")
-    return get_entry_signals_parallel(days_after=days_after, limit_pct=limit_pct, num_workers=num_workers)
+
+    if stock_list is None:
+        with _db_lock:
+            manager = get_global_db_manager()
+            tactics_df = manager.db.execute("SELECT * FROM tactics_zhtx WHERE time_type='日线'").df()
+            stock_list = tactics_df['symbol'].tolist() if not tactics_df.empty else []
+    if not stock_list:
+        return []
+
+    all_dfs = []
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = {
+            executor.submit(run_entry_check, tactics_df, thscode, 300, '日线'): thscode
+            for thscode in stock_list
+        }
+        for future in as_completed(futures):
+            try:
+                df = future.result()
+                if df is not None and not df.empty:
+                    all_dfs.append(df)
+            except Exception as e:
+                print(f"❌ 处理股票 {futures[future]} 时出错: {e}")
+
+    if not all_dfs:
+        return []
+
+    # 合并所有信号
+    combined_df = pd.concat(all_dfs, ignore_index=True)
+    # 去重（按主键）
+    combined_df = combined_df.drop_duplicates(subset=['symbol', 'touch_type', 'time_type', 'direction'], keep='last')
+
+    # 统一保存到 tactics_enter
+    save_shape_data(combined_df, 'tactics_enter', 'symbol, time_type, touch_type, direction')
+
+    # 读取并返回
+    with _db_lock:
+        manager = get_global_db_manager()
+        df_enter = manager.db.execute("SELECT * FROM tactics_enter WHERE time_type='日线' AND direction='买'").df()
 
 
+
+    # 将所有日期列转为字符串
+    for col in df_enter.select_dtypes(include=['datetime64', 'datetime']).columns:
+        df_enter[col] = df_enter[col].dt.strftime('%Y-%m-%d')
+    # 将其他可能含有NaT的列也处理（如signal_time）
+    for col in df_enter.columns:
+        if df_enter[col].dtype == 'object':
+            # 检查是否包含Timestamp
+            if isinstance(df_enter[col].iloc[0] if not df_enter[col].empty else None, pd.Timestamp):
+                df_enter[col] = df_enter[col].apply(lambda x: x.strftime('%Y-%m-%d %H:%M:%S') if pd.notna(x) else '')
+
+
+    # 6. 关闭连接
+    global _global_db_manager
+    if _global_db_manager is not None:
+        _global_db_manager.close()
+        _global_db_manager = None
+        print("✅ 已关闭全局数据库连接")
+
+    return df_enter.to_dict('records')
+
+
+
+
+
+#================================================================
+#================================================================
 # ========== 组合图形策略检测 ==========
 def check_touch_type(df, symbol, time_type, gp_row, tactics_df):
     """
@@ -175,7 +292,7 @@ def run_strategy_on_stock(thscode, lookback_days=300, strategy_type='full'):
 
     df['code'] = thscode
     inside_break(df, '日线')
-    print(f"✅ {thscode} 基础图形检测完成")
+    # print(f"✅ {thscode} 基础图形检测完成")
 
 def run_strategy_on_stock_list(thscode_list, lookback_days=300, strategy_type='full'):
     """
@@ -226,7 +343,7 @@ def run_strategy_on_stock_all(thscode, lookback_days=300, strategy_type='full'):
 
     df['code'] = thscode
     inside_break_all(df, '日线')
-    print(f"✅ {thscode} 基础图形检测完成")
+    # print(f"✅ {thscode} 基础图形检测完成")
     return pd.DataFrame()  # 返回空，因为只保存数据，不返回信号
 
 # ========== 组合图形检测（多线程版） ==========
