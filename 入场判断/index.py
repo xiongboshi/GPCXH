@@ -71,11 +71,11 @@ def check_Enter_U(df, symbol, time_type, tactics_df):
             if recent.empty:
                 continue
 
-            print(recent)
             # 查找涨停（涨幅 ≥ 9.8，且日期 > buy_date
             limit_days = recent[(recent['pctChg'] >= 9.8) & (recent['date'] > pd.to_datetime(buy_date))]
             if limit_days.empty:
                 continue
+
 
             first_limit = limit_days.iloc[0]
             limit_date = pd.to_datetime(first_limit['date'])
