@@ -85,6 +85,16 @@ def check_Enter_U(df, symbol, time_type, tactics_df):
             prev_days = recent[recent['date'] < limit_date]
             prev_close = float(prev_days.iloc[-1]['close']) if not prev_days.empty else 0.0
 
+            # ★ 如果 prev_close 为 0 或空，不保存该条数据
+            if prev_close == 0.0:
+                continue
+
+            
+            # ★ 条件4：当前最新价格在 prev_close 的上下20%范围内
+            latest_price = float(df.iloc[-1]['close'])
+            if not (prev_close * 0.8 <= latest_price <= prev_close * 1.2):
+                continue
+
             
             # 找到符合条件的配对，返回信号（取最新日期）
             return {

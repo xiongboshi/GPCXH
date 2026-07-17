@@ -58,8 +58,8 @@ def check_Double_U_主升六外(df, symbol, time_type, tactics_df, gp_row):
             if pd.isna(buy_bot_price) or buy_bot_price == 0:
                 continue
 
-            #条件1:第一个U形的k线数量必须大于10
-            if buy_k_num < 10:
+            #条件1:第一个U形的k线数量必须大于20
+            if buy_k_num < 20:
                 continue
             
             # 条件2：从 buy_date 之后（不含当天）到最新的K线最高价是否 > buy_price
