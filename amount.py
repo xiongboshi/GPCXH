@@ -174,12 +174,15 @@ def run_entry_check_parallel(stock_list=None, days_after=12, limit_pct=9.8, num_
     # 统一保存到 tactics_enter
     save_shape_data(combined_df, 'tactics_enter', 'symbol, time_type, touch_type, direction')
 
-    # 读取并返回
+    # ★ 读取并返回（增加 JOIN 获取概念和行业）
     with _db_lock:
         manager = get_global_db_manager()
-        df_enter = manager.db.execute("SELECT * FROM tactics_enter WHERE time_type='日线' AND direction='买'").df()
-
-
+        df_enter = manager.db.execute("""
+            SELECT e.*, sl.concept, sl.industry
+            FROM tactics_enter e
+            LEFT JOIN stock_list sl ON e.symbol = sl.thscode
+            WHERE e.time_type='日线' AND e.direction='买'
+        """).df()
 
     # 将所有日期列转为字符串
     for col in df_enter.select_dtypes(include=['datetime64', 'datetime']).columns:
@@ -188,11 +191,10 @@ def run_entry_check_parallel(stock_list=None, days_after=12, limit_pct=9.8, num_
     for col in df_enter.columns:
         if df_enter[col].dtype == 'object':
             # 检查是否包含Timestamp
-            if isinstance(df_enter[col].iloc[0] if not df_enter[col].empty else None, pd.Timestamp):
+            if not df_enter[col].empty and isinstance(df_enter[col].iloc[0], pd.Timestamp):
                 df_enter[col] = df_enter[col].apply(lambda x: x.strftime('%Y-%m-%d %H:%M:%S') if pd.notna(x) else '')
 
-
-    # 6. 关闭连接
+    # 关闭连接
     global _global_db_manager
     if _global_db_manager is not None:
         _global_db_manager.close()

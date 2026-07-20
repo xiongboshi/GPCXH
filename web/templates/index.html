@@ -22,7 +22,7 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1680px;
             margin: 0 auto;
         }
 
@@ -587,6 +587,8 @@
                             <th>涨停日期</th>
                             <th>涨停价</th>
                             <th>前日收盘价</th>
+                            <th>概念</th>
+                            <th>行业</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -619,6 +621,8 @@
                             <th>涨停日期</th>
                             <th>涨停价</th>
                             <th>涨跌幅</th>
+                            <th>概念</th>
+                            <th>行业</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -649,6 +653,8 @@
                             <th>U形点</th>
                             <th>价格</th>
                             <th>U背价格</th>
+                            <th>概念</th>
+                            <th>行业</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -684,6 +690,8 @@
                             <th>方向</th>
                             <th>U形价格</th>
                             <th>U形时间</th>
+                            <th>概念</th>
+                            <th>行业</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -952,13 +960,15 @@
                         stocks.forEach(item => {
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                            <td>${item.thscode}</td>
-                            <td>${item.name || ''}</td>
-                            <td>${item.trade_date}</td>
-                            <td>${fmtPrice(item.close_price)}</td>
-                            <td style="color:#f0b90b;">+${item.pct_chg.toFixed(2)}%</td>
-                            <td><button class="btn btn-sm btn-secondary" data-code="${item.thscode}" onclick="loadKlineWithMarker('${item.thscode}')">查看K线</button></td>
-                        `;
+                                <td>${item.thscode}</td>
+                                <td>${item.name || ''}</td>
+                                <td>${item.trade_date}</td>
+                                <td>${fmtPrice(item.close_price)}</td>
+                                <td style="color:#f0b90b;">+${item.pct_chg.toFixed(2)}%</td>
+                                <td>${item.concept || ''}</td>
+                                <td>${item.industry || ''}</td>
+                                <td><button class="btn btn-sm btn-secondary" data-code="${item.thscode}" onclick="loadKlineWithMarker('${item.thscode}')">查看K线</button></td>
+                            `;
                             limitUpTableBody.appendChild(tr);
                         });
                     }
@@ -1042,6 +1052,8 @@
                         <td>${item.u形图形_内突_u_point || ''}</td>
                         <td>${fmtPrice(item.u形图形_内突_u_price)}</td>
                         <td>${uBackPrice}</td>
+                        <td>${item.concept || ''}</td>
+                        <td>${item.industry || ''}</td>
                         <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
                     `;
                     tacticsTableBody.appendChild(tr);
@@ -1211,6 +1223,8 @@
                         <td>${item.direction}</td>
                         <td>${fmtPrice(item.小的_U形_u_price)}</td>
                         <td>${item.大的_U形_datetime || ''}</td>
+                        <td>${item.concept || ''}</td>
+                        <td>${item.industry || ''}</td>
                         <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
                     `;
                     combinedTableBody.appendChild(tr);
@@ -1470,29 +1484,31 @@
                     loadKlineWithEntry(this);
                 });
                 tr.innerHTML = `
-                <td>${item.symbol}</td>
-                <td>${item.touch_type || ''}</td>
-                <td>${item.大的_U形_datetime || ''}</td>
-                <td>${fmtPrice(item.小的_U形_u_price)}</td>
-                <td>${fmtPrice(item.大的_U形_u_price)}</td>
-                <td>${item.limit_date || ''}</td>
-                <td>${fmtPrice(item.limit_close)}</td>
-                <td>${fmtPrice(item.prev_close)}</td>
-                <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
-        `;
+                    <td>${item.symbol}</td>
+                    <td>${item.touch_type || ''}</td>
+                    <td>${item.大的_U形_datetime || ''}</td>
+                    <td>${fmtPrice(item.小的_U形_u_price)}</td>
+                    <td>${fmtPrice(item.大的_U形_u_price)}</td>
+                    <td>${item.limit_date || ''}</td>
+                    <td>${fmtPrice(item.limit_close)}</td>
+                    <td>${fmtPrice(item.prev_close)}</td>
+                    <td>${item.concept || ''}</td>
+                    <td>${item.industry || ''}</td>
+                    <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+                `;
                 entryTableBody.appendChild(tr);
             });
 
 
-        // 更新分页信息
-        const total = entryFilteredData.length;
-        const totalPages = Math.ceil(total / entryPageSize) || 1;
-        entryTotalPages.textContent = totalPages;
-        entryTotalRecords.textContent = total;
-        entryPageInput.value = entryCurrentPage;
-        entryPageInput.max = totalPages;
-        entryPrevPage.disabled = entryCurrentPage <= 1;
-        entryNextPage.disabled = entryCurrentPage >= totalPages;
+            // 更新分页信息
+            const total = entryFilteredData.length;
+            const totalPages = Math.ceil(total / entryPageSize) || 1;
+            entryTotalPages.textContent = totalPages;
+            entryTotalRecords.textContent = total;
+            entryPageInput.value = entryCurrentPage;
+            entryPageInput.max = totalPages;
+            entryPrevPage.disabled = entryCurrentPage <= 1;
+            entryNextPage.disabled = entryCurrentPage >= totalPages;
         }
 
         // 入场搜索事件

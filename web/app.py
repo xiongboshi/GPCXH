@@ -63,6 +63,8 @@ def get_kline():
         r['trade_date'] = str(r['trade_date'])
     return jsonify(records)
 
+
+
 @app.route('/api/limit_up_stocks')
 def get_limit_up_stocks():
     db = get_db()
@@ -96,7 +98,9 @@ def get_limit_up_stocks():
             sl.name,
             lu.trade_date,
             lu.close_price,
-            lu.pct_chg
+            lu.pct_chg,
+            sl.concept,
+            sl.industry
         FROM limit_up lu
         LEFT JOIN stock_list sl ON lu.thscode = sl.thscode
         WHERE lu.rn = 1
@@ -110,6 +114,8 @@ def get_limit_up_stocks():
     for r in records:
         r['trade_date'] = str(r['trade_date'])
     return jsonify({'stocks': records, 'dates': [str(d) for d in date_list]})
+
+
 
 @app.route('/api/kline_with_marker')
 def get_kline_with_marker():
@@ -221,10 +227,12 @@ def get_tactics():
             db.close()
             return jsonify([])
         df = db.execute("""
-            SELECT symbol, date, direction, u形图形_内突_u_point, u形图形_内突_u_price, u形图形_内突_u_k_num,
-                   u形图形_内突_u_bot_price, u形图形_内突_u_top_price, time_type
-            FROM tactics
-            ORDER BY date DESC
+            SELECT t.symbol, t.date, t.direction, t.u形图形_内突_u_point, t.u形图形_内突_u_price, 
+                   t.u形图形_内突_u_k_num, t.u形图形_内突_u_bot_price, t.u形图形_内突_u_top_price, t.time_type,
+                   sl.concept, sl.industry
+            FROM tactics t
+            LEFT JOIN stock_list sl ON t.symbol = sl.thscode
+            ORDER BY t.date DESC
         """).df()
         db.close()
         if df.empty:
@@ -450,20 +458,20 @@ def get_combined():
         if 'tactics_zhtx' not in tables['name'].values:
             db.close()
             return jsonify([])
-        # ✅ 添加缺失字段：大的_U形_u_price, 大的_U形_point_time, 小的_U形_point_time
         df = db.execute("""
-            SELECT symbol, touch_type, direction, tp_time, ht_time, 
-                   小的_U形_u_price, 大的_U形_datetime,
-                   大的_U形_u_price, 大的_U形_point_time, 小的_U形_point_time
-            FROM tactics_zhtx
-            ORDER BY symbol, direction
+            SELECT c.symbol, c.touch_type, c.direction, c.tp_time, c.ht_time, 
+                   c.小的_U形_u_price, c.大的_U形_datetime,
+                   c.大的_U形_u_price, c.大的_U形_point_time, c.小的_U形_point_time,
+                   sl.concept, sl.industry
+            FROM tactics_zhtx c
+            LEFT JOIN stock_list sl ON c.symbol = sl.thscode
+            ORDER BY c.symbol, c.direction
         """).df()
         db.close()
         if df.empty:
             return jsonify([])
         records = df.to_dict(orient='records')
         for r in records:
-            # 日期字段转字符串
             for col in ['tp_time', 'ht_time', '大的_U形_datetime', '大的_U形_point_time', '小的_U形_point_time']:
                 if r.get(col) is not None:
                     r[col] = str(r[col])

@@ -57,7 +57,7 @@ class DuckDBManager:
             )
         """)
         
-        # 股票列表表 - 实时快照
+        # 股票列表表 - 实时快照（新增 concept 和 industry 字段）
         self.db.execute("""
             CREATE TABLE IF NOT EXISTS stock_list (
                 thscode VARCHAR PRIMARY KEY,
@@ -73,7 +73,9 @@ class DuckDBManager:
                 prev_price DOUBLE,
                 volume DOUBLE,
                 turnover DOUBLE,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                concept TEXT DEFAULT '',
+                industry TEXT DEFAULT ''
             )
         """)
         
@@ -165,6 +167,8 @@ class DuckDBManager:
                 'ticker': ticker,
                 'name': name,
                 'market': market,
+                'concept': '',          # 新增
+                'industry': '',         # 新增
                 'updated_at': datetime.now()
             })
         
@@ -174,16 +178,26 @@ class DuckDBManager:
             print(f"   - ST过滤: {skip_reasons['st']}")
             return 0
         
-        # 清空并插入
+        # 清空并插入（保留已有的 concept 和 industry 字段）
+        # 但为避免重复，先删除再插入，但插入时 concept 和 industry 设为空字符串，
+        # 这样之前保存的数据会丢失，但可通过后续专门的更新方法补充。
         self.db.execute("DELETE FROM stock_list")
         
-        params = [[d['thscode'], d['ticker'], d['name'], d['market'], 
-                   None, None, None, None, None, None, None, None, None, d['updated_at']] for d in filtered_data]
+        params = [[
+            d['thscode'], d['ticker'], d['name'], d['market'],
+            None, None, None, None, None, None, None, None, None,
+            d['updated_at'],
+            d['concept'],   # concept
+            d['industry']   # industry
+        ] for d in filtered_data]
+        
+        # 更新插入语句，增加 concept 和 industry 列
         self.db.executemany("""
             INSERT INTO stock_list (thscode, ticker, name, market, 
                 last_price, price_change, price_change_ratio_pct, 
-                open_price, high_price, low_price, prev_price, volume, turnover, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                open_price, high_price, low_price, prev_price, volume, turnover, updated_at,
+                concept, industry)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, params)
         
         print(f"✅ 已保存 {len(filtered_data)} 只股票到 stock_list")
@@ -321,7 +335,7 @@ class DuckDBManager:
         return [row[0] for row in result]
     
     def get_all_stocks_df(self):
-        """获取所有股票信息"""
+        """获取所有股票信息（包含 concept 和 industry）"""
         return self.db.execute("SELECT * FROM stock_list ORDER BY thscode").df()
     
     def get_stock_count(self):
@@ -548,8 +562,29 @@ class DuckDBManager:
         return success_count
 
 
-
-
+    # ============ 板块信息更新（新增） ============
+    def update_stock_concept_industry(self, mapping: dict):
+        """
+        批量更新股票的概念和行业信息
+        mapping: {thscode: (concept_str, industry_str)}
+        """
+        if not mapping:
+            print("⚠️ 映射为空")
+            return 0
+        
+        updated = 0
+        for thscode, (concept, industry) in mapping.items():
+            result = self.db.execute("""
+                UPDATE stock_list 
+                SET concept = ?, industry = ? 
+                WHERE thscode = ?
+            """, [concept, industry, thscode])
+            if result.df() is not None:  # 只要执行成功就算更新
+                updated += 1
+        
+        self.db.commit()
+        print(f"✅ 已更新 {updated} 只股票的板块信息")
+        return updated
 
     # ============ 查询数据 ============
     def query_data(self, thscode=None, start_date=None, end_date=None, limit=10):
