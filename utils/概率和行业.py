@@ -6,6 +6,7 @@ import pandas as pd
 from typing import List, Dict, Optional, Union
 import time
 
+
 class StockSectorMatcher:
     """股票板块匹配器，支持概念板块和行业板块"""
     def __init__(self, api_key: str, sector_type: str = 'concept'):
@@ -152,31 +153,42 @@ def build_full_market_mapping(api_key: str, include_concept: bool = True, includ
 
 
 # ========== 便捷函数（连板天梯专用） ==========
-def enrich_ladder_data(df: pd.DataFrame, api_key: str) -> pd.DataFrame:
+# ========== 新增：从数据库查询板块信息（快速） ==========
+def enrich_ladder_data_from_db(df: pd.DataFrame, db_manager) -> pd.DataFrame:
     """
-    为连板天梯 DataFrame 添加概念板块和行业板块两列
-    Args:
-        df: 连板天梯 DataFrame（必须包含 'thscode' 列）
-        api_key: 同花顺 API Key
-    Returns:
-        添加了 'concept'（概念板块）和 'industry'（申万行业）两列的 DataFrame
+    为连板天梯 DataFrame 添加概念板块和行业板块两列（从本地数据库 stock_list 表查询）
     """
     if df.empty:
         return df
 
     stock_codes = df['thscode'].unique().tolist()
+    if not stock_codes:
+        return df
 
-    # 获取概念板块
-    matcher_concept = StockSectorMatcher(api_key, sector_type='concept')
-    concept_map = matcher_concept.get_sector_mapping(stock_codes)
-    concept_flat = {code: ', '.join(concept_map.get(code, [])) for code in stock_codes}
+    # 构建 SQL 查询，使用参数化
+    placeholders = ', '.join(['?'] * len(stock_codes))
+    sql = f"""
+        SELECT thscode, concept, industry
+        FROM stock_list
+        WHERE thscode IN ({placeholders})
+    """
+    try:
+        # 直接使用 db_manager.db.execute 并传入参数
+        result_df = db_manager.db.execute(sql, stock_codes).df()
+    except AttributeError:
+        # 如果 db_manager 没有 db 属性，尝试使用 execute 方法
+        result_df = db_manager.execute(sql, stock_codes).df()
 
-    # 获取行业板块
-    matcher_industry = StockSectorMatcher(api_key, sector_type='industry')
-    industry_map = matcher_industry.get_sector_mapping(stock_codes)
-    industry_flat = {code: ', '.join(industry_map.get(code, [])) for code in stock_codes}
+    if result_df.empty:
+        result = df.copy()
+        result['concept'] = ''
+        result['industry'] = ''
+        return result
+
+    concept_map = dict(zip(result_df['thscode'], result_df['concept']))
+    industry_map = dict(zip(result_df['thscode'], result_df['industry']))
 
     result = df.copy()
-    result['concept'] = result['thscode'].map(concept_flat)
-    result['industry'] = result['thscode'].map(industry_flat)
+    result['concept'] = result['thscode'].map(concept_map).fillna('')
+    result['industry'] = result['thscode'].map(industry_map).fillna('')
     return result

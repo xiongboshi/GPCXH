@@ -10,6 +10,10 @@ import pandas as pd
 import subprocess
 from datetime import datetime, timedelta
 
+from utils.连扳天梯 import get_limit_up_ladder
+from utils.概率和行业 import enrich_ladder_data_from_db
+from database.db_manager import DuckDBManager
+
 from database.shape_storage import drop_combined_table,drop_enter_table
 from database.shape_storage import get_storage  # 或直接 ShapeStorage
 
@@ -306,6 +310,42 @@ def get_kline_with_tactics():
     except Exception as e:
         db.close()
         return jsonify({'error': str(e)}), 500
+    
+
+#===================================
+#连扳天梯
+#===================================
+@app.route('/api/ladder')
+def get_ladder():
+    try:
+        days = request.args.get('days', 30, type=int)
+        target_date = request.args.get('date')  # 可选，格式 YYYY-MM-DD
+        API_KEY = "sk-fuyao-sNNYGRAebGYCgzOovqNydUfa4Zajhslk"
+        df_ladder = get_limit_up_ladder(API_KEY, as_dataframe=True)
+        # 从数据库填充板块
+        manager = DuckDBManager("database/market.duckdb")
+        df_enriched = enrich_ladder_data_from_db(df_ladder, manager)
+        manager.close()
+        
+        # 如果指定了日期，过滤
+        if target_date:
+            # 将日期转为统一格式匹配
+            df_enriched['date_str'] = df_enriched['date'].dt.strftime('%Y-%m-%d')
+            df_enriched = df_enriched[df_enriched['date_str'] == target_date]
+            df_enriched = df_enriched.drop(columns=['date_str'])
+        
+        records = df_enriched.to_dict(orient='records')
+        for r in records:
+            if 'date' in r and hasattr(r['date'], 'strftime'):
+                r['date'] = r['date'].strftime('%Y-%m-%d')
+        return jsonify({'success': True, 'data': records, 'count': len(records)})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+
+
 
 
 @app.route('/api/clear_tactics', methods=['POST'])

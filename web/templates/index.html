@@ -229,7 +229,8 @@
         #limitUpArea,
         #tacticsArea,
         #combinedArea,
-        #entryArea {
+        #entryArea,
+        #ladderArea {
             background: #111927;
             border-radius: 12px;
             border: 1px solid #1a2332;
@@ -240,7 +241,8 @@
         #limitUpArea .header-row,
         #tacticsArea .header-row,
         #combinedArea .header-row,
-        #entryArea .header-row {
+        #entryArea .header-row,
+        #ladderArea .header-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -250,14 +252,16 @@
         #limitUpArea .header-row span,
         #tacticsArea .header-row span,
         #combinedArea .header-row span,
-        #entryArea .header-row span {
+        #entryArea .header-row span,
+        #ladderArea .header-row span {
             font-weight: 600;
             color: #f0b90b;
         }
 
         #tacticsSearchInput,
         #combinedSearchInput,
-        #entrySearchInput {
+        #entrySearchInput,
+        #ladderSearchInput {
             width: 100%;
             padding: 6px 12px;
             background: #0d1421;
@@ -269,7 +273,8 @@
 
         #tacticsSearchInput:focus,
         #combinedSearchInput:focus,
-        #entrySearchInput:focus {
+        #entrySearchInput:focus,
+        #ladderSearchInput:focus {
             outline: none;
             border-color: #f0b90b;
         }
@@ -356,20 +361,23 @@
 
         #tacticsTableBody tr,
         #combinedTableBody tr,
-        #entryTableBody tr {
+        #entryTableBody tr,
+        #ladderTableBody tr {
             cursor: pointer;
             transition: background 0.2s;
         }
 
         #tacticsTableBody tr:hover,
         #combinedTableBody tr:hover,
-        #entryTableBody tr:hover {
+        #entryTableBody tr:hover,
+        #ladderTableBody tr:hover {
             background: #1a2332;
         }
 
         #tacticsTableBody tr.selected,
         #combinedTableBody tr.selected,
-        #entryTableBody tr.selected {
+        #entryTableBody tr.selected,
+        #ladderTableBody tr.selected {
             background: #2a3a4a;
             border-left: 3px solid #f0b90b;
         }
@@ -491,6 +499,56 @@
             outline: none;
             border-color: #f0b90b;
         }
+
+        /* 连板天梯表格列宽固定 */
+        #ladderArea table th:nth-child(5),
+        #ladderArea table td:nth-child(5) {
+            max-width: 400px;
+            min-width: 200px;
+        }
+
+        #ladderArea table th:nth-child(6),
+        #ladderArea table td:nth-child(6) {
+            width: 8%;
+        }
+
+        /* 让表格布局固定，不随内容撑开 */
+        #ladderArea table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        /* 其他列自动分配剩余宽度，但代码列、名称列等可适当设置 */
+        #ladderArea table th:nth-child(1),
+        #ladderArea table td:nth-child(1) {
+            width: 8%;
+        }
+
+        /* 代码 */
+        #ladderArea table th:nth-child(2),
+        #ladderArea table td:nth-child(2) {
+            width: 8%;
+        }
+
+        /* 名称 */
+        #ladderArea table th:nth-child(3),
+        #ladderArea table td:nth-child(3) {
+            width: 8%;
+        }
+
+        /* 连板数 */
+        #ladderArea table th:nth-child(4),
+        #ladderArea table td:nth-child(4) {
+            width: 8%;
+        }
+
+        /* 日期 */
+        #ladderArea table th:nth-child(7),
+        #ladderArea table td:nth-child(7) {
+            width: 8%;
+        }
+
+        /* 操作按钮 */
     </style>
 </head>
 
@@ -555,13 +613,22 @@
             </div>
         </div>
 
-        <!-- 第三行控制栏（入场判断） -->
+
         <div class="controls">
+            <!-- 控制栏（入场判断） -->
             <div class="group" style="flex:0.5;min-width:80px;">
                 <label>&nbsp;</label>
                 <button class="btn btn-secondary" id="btnEntryCheck">🚀 入场判断(多线)</button>
             </div>
+
+
+            <!-- 控制栏（连板天梯） -->
+            <div class="group" style="flex:0.5;min-width:80px;">
+                <label>&nbsp;</label>
+                <button class="btn btn-secondary" id="btnLadder">📊 连板天梯</button>
+            </div>
         </div>
+
 
         <!-- ====== 入场判断结果 ====== -->
         <div id="entryArea" class="hidden">
@@ -569,7 +636,6 @@
                 <span>🚀 入场判断结果</span>
                 <button class="btn btn-sm btn-secondary" id="btnCloseEntry">✕ 关闭</button>
             </div>
-            <!-- ★新增 搜索框 -->
             <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
                 <input type="text" id="entrySearchInput" placeholder="🔍 搜索代码或形态类型..." style="flex:1;">
                 <button class="btn btn-sm btn-secondary" id="btnClearEntrySearch" style="padding:6px 16px;">✕
@@ -595,13 +661,53 @@
                     <tbody id="entryTableBody"></tbody>
                 </table>
             </div>
-            <!-- ★新增 分页控件 -->
             <div class="pagination" id="entryPagination">
                 <button id="entryPrevPage">◀ 上一页</button>
                 <span class="page-info">第 <input type="number" id="entryPageInput" class="page-input" value="1" min="1">
                     页 / 共 <span id="entryTotalPages">1</span> 页</span>
                 <button id="entryNextPage">下一页 ▶</button>
                 <span class="page-info">总记录: <span id="entryTotalRecords">0</span></span>
+            </div>
+        </div>
+
+        <!-- ====== 连板天梯结果 ====== -->
+        <div id="ladderArea" class="hidden">
+            <div class="header-row">
+                <span>📊 连板天梯</span>
+                <span id="ladderStats" style="font-size:12px; color:#6a7a8e; margin-left:15px;"></span>
+                <button class="btn btn-sm btn-secondary" id="btnCloseLadder">✕ 关闭</button>
+            </div>
+            <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+                <input type="text" id="ladderSearchInput" placeholder="🔍 搜索代码、名称、概念或行业..." style="flex:1;">
+                <input type="date" id="ladderDateInput"
+                    style="background:#0d1421; border:1px solid #1a2332; border-radius:6px; color:#e0e0e0; padding:6px 12px; font-size:13px;">
+                <button class="btn btn-sm btn-secondary" id="btnClearLadderDate" style="padding:6px 16px;">✕
+                    清除日期</button>
+                <button class="btn btn-sm btn-secondary" id="btnClearLadderSearch" style="padding:6px 16px;">✕
+                    清除搜索</button>
+            </div>
+            <div style="max-height:500px; overflow-y:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>代码</th>
+                            <th>名称</th>
+                            <th>连板数</th>
+                            <th>日期</th>
+                            <th>概念</th>
+                            <th>行业</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ladderTableBody"></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="ladderPagination">
+                <button id="ladderPrevPage">◀ 上一页</button>
+                <span class="page-info">第 <input type="number" id="ladderPageInput" class="page-input" value="1"
+                        min="1"> 页 / 共 <span id="ladderTotalPages">1</span> 页</span>
+                <button id="ladderNextPage">下一页 ▶</button>
+                <span class="page-info">总记录: <span id="ladderTotalRecords">0</span></span>
             </div>
         </div>
 
@@ -775,26 +881,30 @@
         const logBox = document.getElementById('logBox');
         let searchTimer = null;
 
-        // 基础策略分页
+        // 各列表数据及分页
         let tacticsData = [];
         let tacticsCurrentPage = 1;
         let tacticsPageSize = 20;
         let tacticsFilteredData = [];
 
-        // 组合图形分页
         let combinedData = [];
         let combinedCurrentPage = 1;
         let combinedPageSize = 20;
         let combinedFilteredData = [];
 
-        // 入场判断分页 ★新增
         let entryData = [];
         let entryCurrentPage = 1;
         let entryPageSize = 20;
         let entryFilteredData = [];
 
+        // 连板天梯
+        let ladderData = [];
+        let ladderCurrentPage = 1;
+        let ladderPageSize = 20;
+        let ladderFilteredData = [];
+
         // ============================================================
-        // 工具函数：格式化数字保留两位小数
+        // 工具函数
         // ============================================================
         function fmtPrice(val) {
             if (val === undefined || val === null || isNaN(val)) return '—';
@@ -940,7 +1050,7 @@
         });
 
         // ============================================================
-        // 涨停股票
+        // 涨停股票（已修改，包含概念行业）
         // ============================================================
         const btnLimitUp = document.getElementById('btnLimitUp');
         const limitUpArea = document.getElementById('limitUpArea');
@@ -955,7 +1065,7 @@
                     document.getElementById('limitUpTotal').textContent = '总数: ' + stocks.length;
                     limitUpTableBody.innerHTML = '';
                     if (stocks.length === 0) {
-                        limitUpTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6a7a8e;padding:20px;">最近12天无涨停股票</td></tr>';
+                        limitUpTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6a7a8e;padding:20px;">最近12天无涨停股票</td></tr>';
                     } else {
                         stocks.forEach(item => {
                             const tr = document.createElement('tr');
@@ -1026,7 +1136,7 @@
             const pageData = tacticsFilteredData.slice(start, end);
             tacticsTableBody.innerHTML = '';
             if (pageData.length === 0) {
-                tacticsTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6a7a8e;padding:20px;">暂无策略数据</td></tr>';
+                tacticsTableBody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6a7a8e;padding:20px;">暂无策略数据</td></tr>';
             } else {
                 pageData.forEach(item => {
                     const tr = document.createElement('tr');
@@ -1070,11 +1180,17 @@
         }
 
         tacticsPrevPage.addEventListener('click', function () {
-            if (tacticsCurrentPage > 1) { tacticsCurrentPage--; renderTacticsTable(); }
+            if (tacticsCurrentPage > 1) {
+                tacticsCurrentPage--;
+                renderTacticsTable();
+            }
         });
         tacticsNextPage.addEventListener('click', function () {
             const totalPages = Math.ceil(tacticsFilteredData.length / tacticsPageSize) || 1;
-            if (tacticsCurrentPage < totalPages) { tacticsCurrentPage++; renderTacticsTable(); }
+            if (tacticsCurrentPage < totalPages) {
+                tacticsCurrentPage++;
+                renderTacticsTable();
+            }
         });
         tacticsPageInput.addEventListener('change', function () {
             let page = parseInt(this.value);
@@ -1143,8 +1259,15 @@
                     btn.textContent = '⏳ 加载列表...';
                     return loadTacticsAndRender();
                 })
-                .then(() => { btn.disabled = false; btn.textContent = '🔍基础U形(多线)'; })
-                .catch(err => { appendLog(`❌ 操作失败: ${err.message}`, 'error'); btn.disabled = false; btn.textContent = '🔍基础U形(多线)'; });
+                .then(() => {
+                    btn.disabled = false;
+                    btn.textContent = '🔍基础U形(多线)';
+                })
+                .catch(err => {
+                    appendLog(`❌ 操作失败: ${err.message}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔍基础U形(多线)';
+                });
         });
 
         document.getElementById('btnRunSingleStock').addEventListener('click', function () {
@@ -1176,8 +1299,15 @@
                     btn.textContent = '⏳ 加载列表...';
                     return loadTacticsAndRender();
                 })
-                .then(() => { btn.disabled = false; btn.textContent = '🔍 单股检测'; })
-                .catch(err => { appendLog(`❌ 操作失败: ${err.message}`, 'error'); btn.disabled = false; btn.textContent = '🔍 单股检测'; });
+                .then(() => {
+                    btn.disabled = false;
+                    btn.textContent = '🔍 单股检测';
+                })
+                .catch(err => {
+                    appendLog(`❌ 操作失败: ${err.message}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔍 单股检测';
+                });
         });
 
         btnCloseTactics.addEventListener('click', function () { tacticsArea.classList.add('hidden'); });
@@ -1204,7 +1334,7 @@
             const pageData = combinedFilteredData.slice(start, end);
             combinedTableBody.innerHTML = '';
             if (pageData.length === 0) {
-                combinedTableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6a7a8e;padding:20px;">暂无组合图形信号</td></tr>';
+                combinedTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6a7a8e;padding:20px;">暂无组合图形信号</td></tr>';
             } else {
                 pageData.forEach(item => {
                     const tr = document.createElement('tr');
@@ -1241,11 +1371,17 @@
         }
 
         combinedPrevPage.addEventListener('click', function () {
-            if (combinedCurrentPage > 1) { combinedCurrentPage--; renderCombinedTable(); }
+            if (combinedCurrentPage > 1) {
+                combinedCurrentPage--;
+                renderCombinedTable();
+            }
         });
         combinedNextPage.addEventListener('click', function () {
             const totalPages = Math.ceil(combinedFilteredData.length / combinedPageSize) || 1;
-            if (combinedCurrentPage < totalPages) { combinedCurrentPage++; renderCombinedTable(); }
+            if (combinedCurrentPage < totalPages) {
+                combinedCurrentPage++;
+                renderCombinedTable();
+            }
         });
         combinedPageInput.addEventListener('change', function () {
             let page = parseInt(this.value);
@@ -1310,8 +1446,15 @@
                         throw new Error(data.message || '执行失败');
                     }
                 })
-                .then(() => { btn.disabled = false; btn.textContent = '🔀组合图形'; })
-                .catch(err => { appendLog(`❌ 组合图形执行失败: ${err.message}`, 'error'); btn.disabled = false; btn.textContent = '🔀组合图形'; });
+                .then(() => {
+                    btn.disabled = false;
+                    btn.textContent = '🔀组合图形';
+                })
+                .catch(err => {
+                    appendLog(`❌ 组合图形执行失败: ${err.message}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔀组合图形';
+                });
         });
 
         document.getElementById('btnRunCombinedParallel').addEventListener('click', function () {
@@ -1342,8 +1485,15 @@
                         throw new Error(data.message || '执行失败');
                     }
                 })
-                .then(() => { btn.disabled = false; btn.textContent = '🔀组合图形(多线)'; })
-                .catch(err => { appendLog(`❌ 多线程组合图形执行失败: ${err.message}`, 'error'); btn.disabled = false; btn.textContent = '🔀组合图形(多线)'; });
+                .then(() => {
+                    btn.disabled = false;
+                    btn.textContent = '🔀组合图形(多线)';
+                })
+                .catch(err => {
+                    appendLog(`❌ 多线程组合图形执行失败: ${err.message}`, 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔀组合图形(多线)';
+                });
         });
 
         btnCloseCombined.addEventListener('click', function () { combinedArea.classList.add('hidden'); });
@@ -1433,14 +1583,13 @@
         }
 
         // ============================================================
-        // 入场判断 ★新增搜索和分页
+        // 入场判断
         // ============================================================
         const entryArea = document.getElementById('entryArea');
         const entryTableBody = document.getElementById('entryTableBody');
         const btnCloseEntry = document.getElementById('btnCloseEntry');
         const btnEntryCheck = document.getElementById('btnEntryCheck');
 
-        // ★新增：获取入场搜索和分页元素
         const entrySearchInput = document.getElementById('entrySearchInput');
         const btnClearEntrySearch = document.getElementById('btnClearEntrySearch');
         const entryPagination = document.getElementById('entryPagination');
@@ -1450,7 +1599,6 @@
         const entryTotalPages = document.getElementById('entryTotalPages');
         const entryTotalRecords = document.getElementById('entryTotalRecords');
 
-        // 显示入场结果
         function showEntryResults(data) {
             entryData = data;
             entryFilteredData = data.slice();
@@ -1459,25 +1607,23 @@
             entryArea.classList.remove('hidden');
         }
 
-        // 渲染入场表格（含格式化价格）
         function renderEntryTable() {
             const start = (entryCurrentPage - 1) * entryPageSize;
             const end = Math.min(start + entryPageSize, entryFilteredData.length);
             const pageData = entryFilteredData.slice(start, end);
             entryTableBody.innerHTML = '';
             if (pageData.length === 0) {
-                entryTableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6a7a8e;">暂无入场信号</td></tr>';
+                entryTableBody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#6a7a8e;">暂无入场信号</td></tr>';
                 return;
             }
             pageData.forEach(item => {
                 const tr = document.createElement('tr');
-                // ★ 使用数据库原始列名
                 tr.dataset.symbol = item.symbol;
-                tr.dataset.support = item.大的_U形_u_price;    // 支撑线
-                tr.dataset.buyPoint = item.小的_U形_point_time; // U左日期
-                tr.dataset.buyPrice = item.小的_U形_u_price;    // U左价格
-                tr.dataset.prevClose = item.prev_close || null; // 暂无
-                tr.dataset.limitDate = item.limit_date || null; // 暂无
+                tr.dataset.support = item.大的_U形_u_price;
+                tr.dataset.buyPoint = item.小的_U形_point_time;
+                tr.dataset.buyPrice = item.小的_U形_u_price;
+                tr.dataset.prevClose = item.prev_close || null;
+                tr.dataset.limitDate = item.limit_date || null;
                 tr.addEventListener('click', function () {
                     document.querySelectorAll('#entryTableBody tr').forEach(row => row.classList.remove('selected'));
                     this.classList.add('selected');
@@ -1499,8 +1645,6 @@
                 entryTableBody.appendChild(tr);
             });
 
-
-            // 更新分页信息
             const total = entryFilteredData.length;
             const totalPages = Math.ceil(total / entryPageSize) || 1;
             entryTotalPages.textContent = totalPages;
@@ -1511,7 +1655,6 @@
             entryNextPage.disabled = entryCurrentPage >= totalPages;
         }
 
-        // 入场搜索事件
         entrySearchInput.addEventListener('input', function () {
             const keyword = this.value.trim().toLowerCase();
             if (!keyword) {
@@ -1533,13 +1676,18 @@
             renderEntryTable();
         });
 
-        // 入场分页事件
         entryPrevPage.addEventListener('click', function () {
-            if (entryCurrentPage > 1) { entryCurrentPage--; renderEntryTable(); }
+            if (entryCurrentPage > 1) {
+                entryCurrentPage--;
+                renderEntryTable();
+            }
         });
         entryNextPage.addEventListener('click', function () {
             const totalPages = Math.ceil(entryFilteredData.length / entryPageSize) || 1;
-            if (entryCurrentPage < totalPages) { entryCurrentPage++; renderEntryTable(); }
+            if (entryCurrentPage < totalPages) {
+                entryCurrentPage++;
+                renderEntryTable();
+            }
         });
         entryPageInput.addEventListener('change', function () {
             let page = parseInt(this.value);
@@ -1564,28 +1712,21 @@
             }
 
             const markers = [];
-
-            // 支撑线
             if (!isNaN(support) && support > 0) {
                 markers.push({ type: 'level', price: support, label: '支撑线', color: '#ff9800' });
             }
-
-            // U左标记：将日期字符串转为 YYYY-MM-DD
             if (buyPoint) {
                 let buyDate = '';
                 try {
-                    // 尝试解析日期
                     const dateObj = new Date(buyPoint);
                     if (!isNaN(dateObj.getTime())) {
-                        buyDate = dateObj.toISOString().slice(0, 10);  // 转为 YYYY-MM-DD
+                        buyDate = dateObj.toISOString().slice(0, 10);
                     } else {
-                        // 如果解析失败，尝试直接截取（备用）
                         buyDate = buyPoint.slice(0, 10);
                     }
                 } catch (e) {
                     buyDate = buyPoint.slice(0, 10);
                 }
-                console.log('📅 U左日期（处理后）:', buyDate);
                 markers.push({
                     type: 'buy_point',
                     trade_date: buyDate,
@@ -1593,16 +1734,10 @@
                     label: 'U左',
                     color: '#4caf50'
                 });
-            } else {
-                console.warn('⚠️ buyPoint 为空，无法添加 U 左标记');
             }
-
-            // 涨停前日收盘价
             if (!isNaN(prevClose) && prevClose > 0) {
                 markers.push({ type: 'level', price: prevClose, label: '前日收盘', color: '#9c27b0' });
             }
-
-            console.log('📦 最终 markers 数组:', markers);
 
             document.getElementById('loadingDiv').style.display = 'block';
             document.getElementById('resultArea').classList.add('hidden');
@@ -1626,7 +1761,6 @@
                 });
         }
 
-        // 入场按钮事件
         btnEntryCheck.addEventListener('click', function () {
             const btn = this;
             if (!entryArea.classList.contains('hidden')) {
@@ -1639,7 +1773,7 @@
             fetch('/api/check_entry', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})   // 空JSON避免400错误
+                body: JSON.stringify({})
             })
                 .then(res => res.json())
                 .then(data => {
@@ -1663,6 +1797,279 @@
         btnCloseEntry.addEventListener('click', function () {
             entryArea.classList.add('hidden');
         });
+
+        // ============================================================
+        // 连板天梯 ★新增
+        // ============================================================
+        // ============================================================
+        // 连板天梯 ★修复：分离加载与显示逻辑
+        // ============================================================
+        const ladderDateInput = document.getElementById('ladderDateInput');
+        const btnClearLadderDate = document.getElementById('btnClearLadderDate');
+        const ladderArea = document.getElementById('ladderArea');
+        const ladderTableBody = document.getElementById('ladderTableBody');
+        const btnCloseLadder = document.getElementById('btnCloseLadder');
+        const btnLadder = document.getElementById('btnLadder');
+        const ladderSearchInput = document.getElementById('ladderSearchInput');
+        const btnClearLadderSearch = document.getElementById('btnClearLadderSearch');
+        const ladderPrevPage = document.getElementById('ladderPrevPage');
+        const ladderNextPage = document.getElementById('ladderNextPage');
+        const ladderPageInput = document.getElementById('ladderPageInput');
+        const ladderTotalPages = document.getElementById('ladderTotalPages');
+        const ladderTotalRecords = document.getElementById('ladderTotalRecords');
+
+        function showLadderResults(data) {
+            ladderData = data;
+            ladderFilteredData = data.slice();
+            ladderCurrentPage = 1;
+            renderLadderTable();
+            ladderArea.classList.remove('hidden');
+        }
+
+        function renderLadderTable() {
+
+
+            // 计算统计信息
+            const conceptCount = {};
+            const industryCount = {};
+            ladderFilteredData.forEach(item => {
+                // 概念可能为逗号分隔的字符串，需要拆分
+                if (item.concept) {
+                    const concepts = item.concept.split(',').map(s => s.trim()).filter(s => s);
+                    concepts.forEach(c => {
+                        conceptCount[c] = (conceptCount[c] || 0) + 1;
+                    });
+                }
+                if (item.industry) {
+                    const industries = item.industry.split(',').map(s => s.trim()).filter(s => s);
+                    industries.forEach(i => {
+                        industryCount[i] = (industryCount[i] || 0) + 1;
+                    });
+                }
+            });
+
+            // 排序取前3
+            const topConcepts = Object.entries(conceptCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([name, count]) => `${name}(${count})`)
+                .join(' ');
+
+            const topIndustries = Object.entries(industryCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(([name, count]) => `${name}(${count})`)
+                .join(' ');
+
+            let statsText = '';
+            if (topConcepts) statsText += `概念TOP3: ${topConcepts}`;
+            if (topIndustries) {
+                if (statsText) statsText += ' | ';
+                statsText += `行业TOP3: ${topIndustries}`;
+            }
+            document.getElementById('ladderStats').textContent = statsText;
+
+            
+
+            // 分页
+            const start = (ladderCurrentPage - 1) * ladderPageSize;
+            const end = Math.min(start + ladderPageSize, ladderFilteredData.length);
+            const pageData = ladderFilteredData.slice(start, end);
+            ladderTableBody.innerHTML = '';
+            if (pageData.length === 0) {
+                ladderTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6a7a8e;">暂无连板数据</td></tr>';
+                return;
+            }
+            pageData.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.dataset.thscode = item.thscode;
+                tr.dataset.name = item.name;
+                // 点击行跳转到查询
+                tr.addEventListener('click', function () {
+                    // 填充搜索框并查询
+                    const code = this.dataset.thscode;
+                    const name = this.dataset.name;
+                    stockInput.value = code + (name ? ' (' + name + ')' : '');
+                    selectedStock = { thscode: code, name: name };
+                    queryBtn.click();
+                });
+                tr.innerHTML = `
+                    <td>${item.thscode}</td>
+                    <td>${item.name || ''}</td>
+                    <td>${item.board_num || ''}</td>
+                    <td>${item.date || ''}</td>
+                    <td>${item.concept || ''}</td>
+                    <td>${item.industry || ''}</td>
+                    <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+                `;
+                ladderTableBody.appendChild(tr);
+            });
+
+            const total = ladderFilteredData.length;
+            const totalPages = Math.ceil(total / ladderPageSize) || 1;
+            ladderTotalPages.textContent = totalPages;
+            ladderTotalRecords.textContent = total;
+            ladderPageInput.value = ladderCurrentPage;
+            ladderPageInput.max = totalPages;
+            ladderPrevPage.disabled = ladderCurrentPage <= 1;
+            ladderNextPage.disabled = ladderCurrentPage >= totalPages;
+        }
+
+        ladderSearchInput.addEventListener('input', function () {
+            const keyword = this.value.trim().toLowerCase();
+            if (!keyword) {
+                ladderFilteredData = ladderData.slice();
+            } else {
+                ladderFilteredData = ladderData.filter(item =>
+                    (item.thscode && item.thscode.toLowerCase().includes(keyword)) ||
+                    (item.name && item.name.toLowerCase().includes(keyword)) ||
+                    (item.concept && item.concept.toLowerCase().includes(keyword)) ||
+                    (item.industry && item.industry.toLowerCase().includes(keyword))
+                );
+            }
+            ladderCurrentPage = 1;
+            renderLadderTable();
+        });
+
+        btnClearLadderSearch.addEventListener('click', function () {
+            ladderSearchInput.value = '';
+            ladderFilteredData = ladderData.slice();
+            ladderCurrentPage = 1;
+            renderLadderTable();
+        });
+
+        ladderPrevPage.addEventListener('click', function () {
+            if (ladderCurrentPage > 1) {
+                ladderCurrentPage--;
+                renderLadderTable();
+            }
+        });
+        ladderNextPage.addEventListener('click', function () {
+            const totalPages = Math.ceil(ladderFilteredData.length / ladderPageSize) || 1;
+            if (ladderCurrentPage < totalPages) {
+                ladderCurrentPage++;
+                renderLadderTable();
+            }
+        });
+        ladderPageInput.addEventListener('change', function () {
+            let page = parseInt(this.value);
+            const totalPages = Math.ceil(ladderFilteredData.length / ladderPageSize) || 1;
+            if (isNaN(page) || page < 1) page = 1;
+            if (page > totalPages) page = totalPages;
+            ladderCurrentPage = page;
+            renderLadderTable();
+        });
+
+
+
+
+
+        // 加载数据（不控制显示隐藏）
+        function fetchLadderData() {
+            const btn = btnLadder;
+            btn.disabled = true;
+            btn.textContent = '⏳ 加载中...';
+            appendLog('📊 加载连板天梯...', 'info');
+            let url = '/api/ladder';
+            const dateVal = ladderDateInput.value;
+            if (dateVal) {
+                url += `?date=${dateVal}`;
+            }
+            fetch(url)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const list = data.data || [];
+                        appendLog(`✅ 连板天梯加载完成，共 ${list.length} 条记录`, 'success');
+                        showLadderResults(list);
+                    } else {
+                        throw new Error(data.error || '加载失败');
+                    }
+                })
+                .catch(err => {
+                    appendLog(`❌ 连板天梯加载失败: ${err.message}`, 'error');
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.textContent = '📊 连板天梯';
+                });
+        }
+
+        // 显示/隐藏切换 + 首次加载
+        btnLadder.addEventListener('click', function () {
+            if (ladderArea.classList.contains('hidden')) {
+                ladderArea.classList.remove('hidden');
+                fetchLadderData();
+            } else {
+                ladderArea.classList.add('hidden');
+            }
+        });
+
+        // 关闭按钮（只隐藏）
+        btnCloseLadder.addEventListener('click', function () {
+            ladderArea.classList.add('hidden');
+        });
+
+        // 日期变化时自动加载（仅当列表可见时）
+        ladderDateInput.addEventListener('change', function () {
+            if (!ladderArea.classList.contains('hidden')) {
+                fetchLadderData();
+            }
+        });
+
+        // 清除日期并重新加载
+        btnClearLadderDate.addEventListener('click', function () {
+            ladderDateInput.value = '';
+            if (!ladderArea.classList.contains('hidden')) {
+                fetchLadderData();
+            }
+        });
+
+        // 搜索框输入不变
+        ladderSearchInput.addEventListener('input', function () {
+            const keyword = this.value.trim().toLowerCase();
+            if (!keyword) {
+                ladderFilteredData = ladderData.slice();
+            } else {
+                ladderFilteredData = ladderData.filter(item =>
+                    (item.thscode && item.thscode.toLowerCase().includes(keyword)) ||
+                    (item.name && item.name.toLowerCase().includes(keyword)) ||
+                    (item.concept && item.concept.toLowerCase().includes(keyword)) ||
+                    (item.industry && item.industry.toLowerCase().includes(keyword))
+                );
+            }
+            ladderCurrentPage = 1;
+            renderLadderTable();
+        });
+
+        btnClearLadderSearch.addEventListener('click', function () {
+            ladderSearchInput.value = '';
+            ladderFilteredData = ladderData.slice();
+            ladderCurrentPage = 1;
+            renderLadderTable();
+        });
+
+        // 分页控件事件（保持不变）
+        ladderPrevPage.addEventListener('click', function () {
+            if (ladderCurrentPage > 1) { ladderCurrentPage--; renderLadderTable(); }
+        });
+        ladderNextPage.addEventListener('click', function () {
+            const totalPages = Math.ceil(ladderFilteredData.length / ladderPageSize) || 1;
+            if (ladderCurrentPage < totalPages) { ladderCurrentPage++; renderLadderTable(); }
+        });
+        ladderPageInput.addEventListener('change', function () {
+            let page = parseInt(this.value);
+            const totalPages = Math.ceil(ladderFilteredData.length / ladderPageSize) || 1;
+            if (isNaN(page) || page < 1) page = 1;
+            if (page > totalPages) page = totalPages;
+            ladderCurrentPage = page;
+            renderLadderTable();
+        });
+
+
+
+
+
 
         // ============================================================
         // 图表渲染
