@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- ====== 连板天梯控制按钮 ====== -->
+<div class="controls">
+    <div class="group" style="flex:0.5;min-width:80px;">
+        <label>&nbsp;</label>
+        <button class="btn btn-secondary" id="btnLadder">📊 连板天梯</button>
+    </div>
+</div>
+
+<!-- ====== 连板天梯结果 ====== -->
+<div id="ladderArea" class="hidden">
+    <div class="header-row">
+        <span>📊 连板天梯</span>
+        <div id="ladderStats" style="font-size:12px; color:#b3aaaa; margin-left:15px; display:block; white-space:pre-wrap; line-height:1.6;"></div>
+        <button class="btn btn-sm btn-secondary" id="btnCloseLadder">✕ 关闭</button>
+    </div>
+    <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+        <input type="text" id="ladderSearchInput" placeholder="🔍 搜索代码、名称、概念或行业..." style="flex:1;">
+        <input type="date" id="ladderDateInput" style="background:#0d1421; border:1px solid #1a2332; border-radius:6px; color:#e0e0e0; padding:6px 12px; font-size:13px;">
+        <button class="btn btn-sm btn-secondary" id="btnClearLadderDate" style="padding:6px 16px;">✕ 清除日期</button>
+        <button class="btn btn-sm btn-secondary" id="btnClearLadderSearch" style="padding:6px 16px;">✕ 清除搜索</button>
+    </div>
+    <div style="max-height:500px; overflow-y:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>代码</th>
+                    <th>名称</th>
+                    <th>连板数</th>
+                    <th>日期</th>
+                    <th>概念</th>
+                    <th>行业</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="ladderTableBody"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="ladderPagination">
+        <button id="ladderPrevPage">◀ 上一页</button>
+        <span class="page-info">第 <input type="number" id="ladderPageInput" class="page-input" value="1" min="1"> 页 / 共 <span id="ladderTotalPages">1</span> 页</span>
+        <button id="ladderNextPage">下一页 ▶</button>
+        <span class="page-info">总记录: <span id="ladderTotalRecords">0</span></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ============================================================
+    // 连板天梯特有 JavaScript
+    // ============================================================
+    let ladderData = [];
+    let ladderCurrentPage = 1;
+    let ladderPageSize = 20;
+    let ladderFilteredData = [];
+
+    const ladderDateInput = document.getElementById('ladderDateInput');
+    const btnClearLadderDate = document.getElementById('btnClearLadderDate');
+    const ladderArea = document.getElementById('ladderArea');
+    const ladderTableBody = document.getElementById('ladderTableBody');
+    const btnCloseLadder = document.getElementById('btnCloseLadder');
+    const btnLadder = document.getElementById('btnLadder');
+    const ladderSearchInput = document.getElementById('ladderSearchInput');
+    const btnClearLadderSearch = document.getElementById('btnClearLadderSearch');
+    const ladderPrevPage = document.getElementById('ladderPrevPage');
+    const ladderNextPage = document.getElementById('ladderNextPage');
+    const ladderPageInput = document.getElementById('ladderPageInput');
+    const ladderTotalPages = document.getElementById('ladderTotalPages');
+    const ladderTotalRecords = document.getElementById('ladderTotalRecords');
+
+    // 注意：以下函数依赖于公共变量 chart, industryChart, stockInput, selectedStock, queryBtn
+    // 以及公共函数 fmtPrice, appendLog, renderChart, renderIndustryChart, renderTable
+
+    function showLadderResults(data) {
+        ladderData = data;
+        ladderFilteredData = data.slice();
+        ladderCurrentPage = 1;
+        renderLadderTable();
+        ladderArea.classList.remove('hidden');
+    }
+
+    function renderLadderTable() {
+        // 统计信息（最高板 + 概念/行业TOP3）
+        if (ladderFilteredData.length > 0) {
+            let statsLines = [];
+            const maxBoard = Math.max(...ladderFilteredData.map(item => Number(item.board_num) || 0));
+            if (maxBoard > 0) {
+                const topStocks = ladderFilteredData.filter(item => Number(item.board_num) === maxBoard);
+                const stockInfo = topStocks.map(item => {
+                    const name = item.name || item.thscode;
+                    const industry = item.industry || '--';
+                    return `${name}(${industry})`;
+                }).join('、');
+                statsLines.push(`🔥 最高板 ${maxBoard}板: ${stockInfo}`);
+            }
+            const conceptCount = {};
+            const industryCount = {};
+            ladderFilteredData.forEach(item => {
+                if (item.concept) {
+                    const concepts = item.concept.split(',').map(s => s.trim()).filter(s => s);
+                    concepts.forEach(c => {
+                        if (c === '融资融券' || c === '深股通' || c === '沪股通' || c === '国企改革') return;
+                        conceptCount[c] = (conceptCount[c] || 0) + 1;
+                    });
+                }
+                if (item.industry) {
+                    const industries = item.industry.split(',').map(s => s.trim()).filter(s => s);
+                    industries.forEach(i => {
+                        industryCount[i] = (industryCount[i] || 0) + 1;
+                    });
+                }
+            });
+            const topConcepts = Object.entries(conceptCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => `${name}(${count})`).join(' ');
+            const topIndustries = Object.entries(industryCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => `${name}(${count})`).join(' ');
+            let topText = '';
+            if (topConcepts) topText += `概念TOP3: ${topConcepts}`;
+            if (topIndustries) {
+                if (topText) topText += ' | ';
+                topText += `行业TOP3: ${topIndustries}`;
+            }
+            if (topText) statsLines.push(topText);
+            document.getElementById('ladderStats').innerHTML = statsLines.join('<br>');
+            document.getElementById('ladderStats').style.color = '#ffffff';
+        } else {
+            document.getElementById('ladderStats').innerHTML = '';
+            document.getElementById('ladderStats').style.color = '#ffffff';
+        }
+
+        // 分页
+        const start = (ladderCurrentPage - 1) * ladderPageSize;
+        const end = Math.min(start + ladderPageSize, ladderFilteredData.length);
+        const pageData = ladderFilteredData.slice(start, end);
+        ladderTableBody.innerHTML = '';
+        if (pageData.length === 0) {
+            ladderTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6a7a8e;">暂无连板数据</td></tr>';
+            return;
+        }
+        pageData.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.dataset.thscode = item.thscode;
+            tr.dataset.name = item.name;
+            const mainIndustry = item.industry ? item.industry.split(',')[0].trim() : '';
+            tr.dataset.industry = mainIndustry;
+            tr.addEventListener('click', function() {
+                const code = this.dataset.thscode;
+                const name = this.dataset.name;
+                const industry = this.dataset.industry;
+                loadKlineWithIndustry(code, name, industry);
+            });
+            tr.innerHTML = `
+                <td>${item.thscode}</td>
+                <td>${item.name || ''}</td>
+                <td>${item.board_num || ''}</td>
+                <td>${item.date || ''}</td>
+                <td>${item.concept || ''}</td>
+                <td>${item.industry || ''}</td>
+                <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+            `;
+            ladderTableBody.appendChild(tr);
+        });
+
+        const total = ladderFilteredData.length;
+        const totalPages = Math.ceil(total / ladderPageSize) || 1;
+        ladderTotalPages.textContent = totalPages;
+        ladderTotalRecords.textContent = total;
+        ladderPageInput.value = ladderCurrentPage;
+        ladderPageInput.max = totalPages;
+        ladderPrevPage.disabled = ladderCurrentPage <= 1;
+        ladderNextPage.disabled = ladderCurrentPage >= totalPages;
+    }
+
+    // 加载股票+行业K线
+    function loadKlineWithIndustry(code, name, industry) {
+        if (!code) { appendLog('❌ 未找到股票代码', 'error'); return; }
+        const limit = document.getElementById('limitSelect').value;
+        document.getElementById('loadingDiv').style.display = 'block';
+        document.getElementById('resultArea').classList.add('hidden');
+        document.getElementById('status').textContent = '⏳ 加载K线及行业对比...';
+
+        const stockUrl = `/api/kline?code=${code}&limit=${limit}`;
+        const industryUrl = industry ? `/api/industry_kline?industry=${encodeURIComponent(industry)}&limit=${limit}` : null;
+
+        Promise.all([
+            fetch(stockUrl).then(res => res.json()),
+            industryUrl ? fetch(industryUrl).then(res => res.json()) : Promise.resolve(null)
+        ]).then(([stockData, industryData]) => {
+            document.getElementById('loadingDiv').style.display = 'none';
+            document.getElementById('resultArea').classList.remove('hidden');
+            document.getElementById('status').textContent = '✅ 加载完成（含行业对比）';
+
+            // 个股K线
+            renderChart(stockData, null);
+            document.getElementById('klineInfo').textContent = stockData.length + ' 根K线 (个股: ' + (name || code) + ')';
+
+            // 行业K线
+            const container = document.getElementById('industryChartContainer');
+            if (industryData && industryData.length > 0) {
+                container.style.display = 'block';
+                renderIndustryChart(industryData, industry);
+                document.getElementById('industryKlineInfo').textContent = industryData.length + ' 根K线 (行业: ' + industry + ')';
+            } else {
+                container.style.display = 'none';
+                document.getElementById('industryKlineInfo').textContent = '无行业数据';
+            }
+
+            renderTable(stockData);
+            document.getElementById('tableCount').textContent = stockData.length + ' 条';
+        }).catch(err => {
+            document.getElementById('loadingDiv').style.display = 'none';
+            document.getElementById('status').textContent = '❌ 加载失败';
+            appendLog(`❌ 加载数据失败: ${err.message}`, 'error');
+        });
+    }
+
+    // 搜索和分页事件
+    ladderSearchInput.addEventListener('input', function() {
+        const keyword = this.value.trim().toLowerCase();
+        if (!keyword) {
+            ladderFilteredData = ladderData.slice();
+        } else {
+            ladderFilteredData = ladderData.filter(item =>
+                (item.thscode && item.thscode.toLowerCase().includes(keyword)) ||
+                (item.name && item.name.toLowerCase().includes(keyword)) ||
+                (item.concept && item.concept.toLowerCase().includes(keyword)) ||
+                (item.industry && item.industry.toLowerCase().includes(keyword))
+            );
+        }
+        ladderCurrentPage = 1;
+        renderLadderTable();
+    });
+
+    btnClearLadderSearch.addEventListener('click', function() {
+        ladderSearchInput.value = '';
+        ladderFilteredData = ladderData.slice();
+        ladderCurrentPage = 1;
+        renderLadderTable();
+    });
+
+    ladderPrevPage.addEventListener('click', function() {
+        if (ladderCurrentPage > 1) { ladderCurrentPage--; renderLadderTable(); }
+    });
+    ladderNextPage.addEventListener('click', function() {
+        const totalPages = Math.ceil(ladderFilteredData.length / ladderPageSize) || 1;
+        if (ladderCurrentPage < totalPages) { ladderCurrentPage++; renderLadderTable(); }
+    });
+    ladderPageInput.addEventListener('change', function() {
+        let page = parseInt(this.value);
+        const totalPages = Math.ceil(ladderFilteredData.length / ladderPageSize) || 1;
+        if (isNaN(page) || page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+        ladderCurrentPage = page;
+        renderLadderTable();
+    });
+
+    // 加载数据
+    function fetchLadderData() {
+        const btn = btnLadder;
+        btn.disabled = true;
+        btn.textContent = '⏳ 加载中...';
+        appendLog('📊 加载连板天梯...', 'info');
+        let url = '/api/ladder';
+        const dateVal = ladderDateInput.value;
+        if (dateVal) {
+            url += `?date=${dateVal}`;
+        }
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const list = data.data || [];
+                    appendLog(`✅ 连板天梯加载完成，共 ${list.length} 条记录`, 'success');
+                    showLadderResults(list);
+                } else {
+                    throw new Error(data.error || '加载失败');
+                }
+            })
+            .catch(err => {
+                appendLog(`❌ 连板天梯加载失败: ${err.message}`, 'error');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = '📊 连板天梯';
+            });
+    }
+
+    // 按钮事件
+    btnLadder.addEventListener('click', function() {
+        if (ladderArea.classList.contains('hidden')) {
+            ladderArea.classList.remove('hidden');
+            fetchLadderData();
+        } else {
+            ladderArea.classList.add('hidden');
+        }
+    });
+
+    btnCloseLadder.addEventListener('click', function() {
+        ladderArea.classList.add('hidden');
+    });
+
+    ladderDateInput.addEventListener('change', function() {
+        if (!ladderArea.classList.contains('hidden')) {
+            fetchLadderData();
+        }
+    });
+
+    btnClearLadderDate.addEventListener('click', function() {
+        ladderDateInput.value = '';
+        if (!ladderArea.classList.contains('hidden')) {
+            fetchLadderData();
+        }
+    });
+</script>
+{% endblock %}

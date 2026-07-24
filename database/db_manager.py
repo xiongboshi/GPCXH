@@ -78,11 +78,30 @@ class DuckDBManager:
                 industry TEXT DEFAULT ''
             )
         """)
-        
+
         # 创建索引
         self.db.execute("CREATE INDEX IF NOT EXISTS idx_thscode ON daily_quotes(thscode)")
         self.db.execute("CREATE INDEX IF NOT EXISTS idx_trade_date ON daily_quotes(trade_date)")
         self.db.execute("CREATE INDEX IF NOT EXISTS idx_stock_thscode ON stock_list(thscode)")
+
+
+
+        # 新增行业K线汇总表
+        self.db.execute("""
+            CREATE TABLE IF NOT EXISTS industry_daily (
+                industry VARCHAR,
+                trade_date DATE,
+                open_price DOUBLE,
+                high_price DOUBLE,
+                low_price DOUBLE,
+                close_price DOUBLE,
+                volume DOUBLE,
+                stock_count INTEGER,
+                PRIMARY KEY (industry, trade_date)
+            )
+        """)
+        self.db.execute("CREATE INDEX IF NOT EXISTS idx_industry_date ON industry_daily(industry, trade_date)")
+        
     
     def close(self):
         self.db.close()
@@ -683,6 +702,107 @@ class DuckDBManager:
             print("✅ 已清空所有数据")
         else:
             print("❌ 已取消")
+
+
+
+
+
+    def update_industry_daily(self, start_date=None, end_date=None):
+        """
+        计算并更新行业K线汇总数据（等权平均）
+        取 stock_list.industry 字段中第一个逗号前的部分作为主行业
+        """
+        import pandas as pd
+        from datetime import datetime, timedelta
+
+        # 获取所有股票及其主行业
+        df_stock = self.db.execute("""
+            SELECT thscode, 
+                CASE 
+                    WHEN industry IS NULL OR industry = '' THEN '未分类'
+                    ELSE SPLIT_PART(industry, ',', 1) 
+                END AS main_industry
+            FROM stock_list
+        """).df()
+        
+        if df_stock.empty:
+            print("⚠️ 股票列表为空，无法更新行业K线")
+            return 0
+
+        # 日期范围
+        if start_date is None or end_date is None:
+            # 默认最近250个交易日
+            latest = self.get_latest_date()
+            if latest is None:
+                print("⚠️ 无日线数据，先更新K线")
+                return 0
+            end_date = latest
+            start_date = (datetime.strptime(str(latest), "%Y-%m-%d") - timedelta(days=200)).strftime("%Y-%m-%d")
+
+        # 批量查询日线数据（一次性取出，减少查询次数）
+        df_kline = self.db.execute("""
+            SELECT thscode, trade_date, open_price, high_price, low_price, close_price, volume
+            FROM daily_quotes
+            WHERE trade_date BETWEEN ? AND ?
+        """, [start_date, end_date]).df()
+        
+        if df_kline.empty:
+            print("⚠️ 指定日期范围内无K线数据")
+            return 0
+
+        # 合并行业信息
+        df_merged = df_kline.merge(df_stock, on='thscode', how='inner')
+        if df_merged.empty:
+            print("⚠️ 无匹配的行业信息")
+            return 0
+
+        # 按行业和日期分组，计算等权平均
+        df_grouped = df_merged.groupby(['main_industry', 'trade_date']).agg({
+            'open_price': 'mean',
+            'high_price': 'mean',
+            'low_price': 'mean',
+            'close_price': 'mean',
+            'volume': 'sum',
+            'thscode': 'count'  # 股票数量
+        }).reset_index().rename(columns={'thscode': 'stock_count'})
+
+        # 重命名列以匹配表结构
+        df_grouped.columns = ['industry', 'trade_date', 'open_price', 'high_price', 'low_price', 
+                            'close_price', 'volume', 'stock_count']
+
+        # 删除旧数据（重新插入）
+        self.db.execute("DELETE FROM industry_daily WHERE trade_date BETWEEN ? AND ?", [start_date, end_date])
+
+        # 插入新数据
+        if not df_grouped.empty:
+            self.db.executemany("""
+                INSERT INTO industry_daily (industry, trade_date, open_price, high_price, low_price, close_price, volume, stock_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, df_grouped.values.tolist())
+            print(f"✅ 更新行业K线：{len(df_grouped)} 条记录")
+        
+        return len(df_grouped)
+
+
+
+    def get_industry_kline(self, industry, start_date=None, end_date=None, limit=500):
+        """查询某个行业的历史K线"""
+        sql = """
+            SELECT trade_date, open_price, high_price, low_price, close_price, volume, stock_count
+            FROM industry_daily
+            WHERE industry = ?
+        """
+        params = [industry]
+        if start_date:
+            sql += " AND trade_date >= ?"
+            params.append(start_date)
+        if end_date:
+            sql += " AND trade_date <= ?"
+            params.append(end_date)
+        sql += " ORDER BY trade_date ASC LIMIT ?"
+        params.append(limit)
+        return self.db.execute(sql, params).df()
+
 
 
 if __name__ == "__main__":

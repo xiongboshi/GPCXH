@@ -17,6 +17,9 @@ from database.db_manager import DuckDBManager
 from database.shape_storage import drop_combined_table,drop_enter_table
 from database.shape_storage import get_storage  # 或直接 ShapeStorage
 
+from flask import render_template
+
+
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, 'database', 'market.duckdb')
@@ -24,9 +27,36 @@ DB_PATH = os.path.join(BASE_DIR, 'database', 'market.duckdb')
 def get_db():
     return duckdb.connect(DB_PATH)
 
+# @app.route('/')
+# def index():
+#     return render_template('index.html')
+
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('base.html')  # 或重定向到某个默认功能
+
+@app.route('/limit_up')
+def limit_up():
+    return render_template('limit_up.html')
+
+@app.route('/tactics')
+def tactics():
+    return render_template('tactics.html')
+
+@app.route('/combined')
+def combined():
+    return render_template('combined.html')
+
+@app.route('/entry')
+def entry():
+    return render_template('entry.html')
+
+@app.route('/ladder')
+def ladder():
+    return render_template('ladder.html')
+
+
 
 @app.route('/api/search_stocks')
 def search_stocks():
@@ -345,9 +375,45 @@ def get_ladder():
         return jsonify({'success': False, 'error': str(e)}), 500
     
 
+#=====================================
+#更新行业历史k线
+#=====================================
+@app.route('/api/update_industry_kline', methods=['POST'])
+def update_industry_kline():
+    """手动更新行业K线"""
+    try:
+        manager = DuckDBManager("database/market.duckdb")
+        count = manager.update_industry_daily()
+        manager.close()
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+#==================================
+#查询行业历史K线数据进行图表展示
+#==================================
+@app.route('/api/industry_kline')
+def get_industry_kline():
+    industry = request.args.get('industry')
+    limit = request.args.get('limit', 500, type=int)
+    if not industry:
+        return jsonify({'error': '缺少industry参数'}), 400
+    manager = DuckDBManager("database/market.duckdb")
+    df = manager.get_industry_kline(industry, limit=limit)
+    manager.close()
+    if df.empty:
+        return jsonify({'error': '无行业数据'}), 404
+    records = df.to_dict(orient='records')
+    for r in records:
+        r['trade_date'] = str(r['trade_date'])
+    return jsonify(records)
 
 
 
+#=================================
+#清空 组合策略 表
+#=================================
 @app.route('/api/clear_tactics', methods=['POST'])
 def clear_tactics():
     """清空 tactics 表"""

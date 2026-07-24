@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- ====== 涨停列表控制按钮 ====== -->
+<div class="controls">
+    <div class="group" style="flex:0.5;min-width:80px;">
+        <label>&nbsp;</label>
+        <button class="btn btn-secondary" id="btnLimitUp">📈涨T数据</button>
+    </div>
+</div>
+
+<!-- ====== 涨停列表结果 ====== -->
+<div id="limitUpArea" class="hidden">
+    <div class="header-row">
+        <span>📈 最近12天涨T <span id="limitUpTotal" style="margin-left:15px;color:#f0b90b;font-weight:normal;">总数: 0</span></span>
+        <button class="btn btn-sm btn-secondary" id="btnCloseLimitUp">✕ 关闭</button>
+    </div>
+    <div style="max-height:300px; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr>
+                    <th>代码</th>
+                    <th>名称</th>
+                    <th>涨停日期</th>
+                    <th>涨停价</th>
+                    <th>涨跌幅</th>
+                    <th>概念</th>
+                    <th>行业</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="limitUpTableBody"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ============================================================
+    // 涨停列表特有 JavaScript
+    // ============================================================
+    const btnLimitUp = document.getElementById('btnLimitUp');
+    const limitUpArea = document.getElementById('limitUpArea');
+    const btnCloseLimitUp = document.getElementById('btnCloseLimitUp');
+    const limitUpTableBody = document.getElementById('limitUpTableBody');
+
+    // 加载涨停数据（点击按钮）
+    btnLimitUp.addEventListener('click', function() {
+        if (!limitUpArea.classList.contains('hidden')) {
+            limitUpArea.classList.add('hidden');
+            return;
+        }
+        fetch('/api/limit_up_stocks')
+            .then(res => res.json())
+            .then(data => {
+                const stocks = data.stocks || [];
+                document.getElementById('limitUpTotal').textContent = '总数: ' + stocks.length;
+                limitUpTableBody.innerHTML = '';
+                if (stocks.length === 0) {
+                    limitUpTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6a7a8e;padding:20px;">最近12天无涨停股票</td></tr>';
+                } else {
+                    stocks.forEach(item => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${item.thscode}</td>
+                            <td>${item.name || ''}</td>
+                            <td>${item.trade_date}</td>
+                            <td>${fmtPrice(item.close_price)}</td>
+                            <td style="color:#f0b90b;">+${item.pct_chg.toFixed(2)}%</td>
+                            <td>${item.concept || ''}</td>
+                            <td>${item.industry || ''}</td>
+                            <td><button class="btn btn-sm btn-secondary" data-code="${item.thscode}" onclick="loadKlineWithMarker('${item.thscode}')">查看K线</button></td>
+                        `;
+                        limitUpTableBody.appendChild(tr);
+                    });
+                }
+                limitUpArea.classList.remove('hidden');
+            })
+            .catch(err => {
+                alert('加载涨停股票失败: ' + err.message);
+            });
+    });
+
+    // 关闭按钮
+    btnCloseLimitUp.addEventListener('click', function() {
+        limitUpArea.classList.add('hidden');
+    });
+
+    // 查看K线（调用公共渲染）
+    function loadKlineWithMarker(code) {
+        const limit = document.getElementById('limitSelect').value;
+        document.getElementById('loadingDiv').style.display = 'block';
+        document.getElementById('resultArea').classList.add('hidden');
+        document.getElementById('status').textContent = '⏳ 加载中...';
+        // 隐藏行业K线容器
+        const industryContainer = document.getElementById('industryChartContainer');
+        if (industryContainer) industryContainer.style.display = 'none';
+
+        fetch(`/api/kline_with_marker?code=${code}&limit=${limit}`)
+            .then(res => {
+                if (!res.ok) throw new Error('请求失败');
+                return res.json();
+            })
+            .then(result => {
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('resultArea').classList.remove('hidden');
+                document.getElementById('status').textContent = '✅ 加载完成（含涨停标记）';
+                renderChart(result.data, result.markers);
+                renderTable(result.data);
+                document.getElementById('klineInfo').textContent = result.data.length + ' 根K线';
+                document.getElementById('tableCount').textContent = result.data.length + ' 条';
+                currentKlineData = { data: result.data, markers: result.markers };
+            })
+            .catch(err => {
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('status').textContent = '❌ 加载失败';
+                alert('加载失败: ' + err.message);
+            });
+    }
+</script>
+{% endblock %}

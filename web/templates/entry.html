@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- ====== 入场判断控制按钮 ====== -->
+<div class="controls">
+    <div class="group" style="flex:0.5;min-width:80px;">
+        <label>&nbsp;</label>
+        <button class="btn btn-secondary" id="btnEntryCheck">🚀 入场判断(多线)</button>
+    </div>
+</div>
+
+<!-- ====== 入场判断结果 ====== -->
+<div id="entryArea" class="hidden">
+    <div class="header-row">
+        <span>🚀 入场判断结果</span>
+        <button class="btn btn-sm btn-secondary" id="btnCloseEntry">✕ 关闭</button>
+    </div>
+    <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+        <input type="text" id="entrySearchInput" placeholder="🔍 搜索代码或形态类型..." style="flex:1;">
+        <button class="btn btn-sm btn-secondary" id="btnClearEntrySearch" style="padding:6px 16px;">✕ 清除</button>
+    </div>
+    <div style="max-height:400px; overflow-y:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>代码</th>
+                    <th>形态类型</th>
+                    <th>信号日期</th>
+                    <th>U左价格</th>
+                    <th>支撑线</th>
+                    <th>涨停日期</th>
+                    <th>涨停价</th>
+                    <th>前日收盘价</th>
+                    <th>概念</th>
+                    <th>行业</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="entryTableBody"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="entryPagination">
+        <button id="entryPrevPage">◀ 上一页</button>
+        <span class="page-info">第 <input type="number" id="entryPageInput" class="page-input" value="1" min="1"> 页 / 共 <span id="entryTotalPages">1</span> 页</span>
+        <button id="entryNextPage">下一页 ▶</button>
+        <span class="page-info">总记录: <span id="entryTotalRecords">0</span></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ============================================================
+    // 入场判断特有 JavaScript
+    // ============================================================
+    let entryData = [];
+    let entryCurrentPage = 1;
+    let entryPageSize = 20;
+    let entryFilteredData = [];
+
+    const entryArea = document.getElementById('entryArea');
+    const entryTableBody = document.getElementById('entryTableBody');
+    const btnCloseEntry = document.getElementById('btnCloseEntry');
+    const btnEntryCheck = document.getElementById('btnEntryCheck');
+    const entrySearchInput = document.getElementById('entrySearchInput');
+    const btnClearEntrySearch = document.getElementById('btnClearEntrySearch');
+    const entryPagination = document.getElementById('entryPagination');
+    const entryPrevPage = document.getElementById('entryPrevPage');
+    const entryNextPage = document.getElementById('entryNextPage');
+    const entryPageInput = document.getElementById('entryPageInput');
+    const entryTotalPages = document.getElementById('entryTotalPages');
+    const entryTotalRecords = document.getElementById('entryTotalRecords');
+
+    function showEntryResults(data) {
+        entryData = data;
+        entryFilteredData = data.slice();
+        entryCurrentPage = 1;
+        renderEntryTable();
+        entryArea.classList.remove('hidden');
+    }
+
+    function renderEntryTable() {
+        const start = (entryCurrentPage - 1) * entryPageSize;
+        const end = Math.min(start + entryPageSize, entryFilteredData.length);
+        const pageData = entryFilteredData.slice(start, end);
+        entryTableBody.innerHTML = '';
+        if (pageData.length === 0) {
+            entryTableBody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#6a7a8e;">暂无入场信号</td></tr>';
+            return;
+        }
+        pageData.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.dataset.symbol = item.symbol;
+            tr.dataset.support = item.大的_U形_u_price;
+            tr.dataset.buyPoint = item.小的_U形_point_time;
+            tr.dataset.buyPrice = item.小的_U形_u_price;
+            tr.dataset.prevClose = item.prev_close || null;
+            tr.dataset.limitDate = item.limit_date || null;
+            tr.addEventListener('click', function() {
+                document.querySelectorAll('#entryTableBody tr').forEach(row => row.classList.remove('selected'));
+                this.classList.add('selected');
+                loadKlineWithEntry(this);
+            });
+            tr.innerHTML = `
+                <td>${item.symbol}</td>
+                <td>${item.touch_type || ''}</td>
+                <td>${item.大的_U形_datetime || ''}</td>
+                <td>${fmtPrice(item.小的_U形_u_price)}</td>
+                <td>${fmtPrice(item.大的_U形_u_price)}</td>
+                <td>${item.limit_date || ''}</td>
+                <td>${fmtPrice(item.limit_close)}</td>
+                <td>${fmtPrice(item.prev_close)}</td>
+                <td>${item.concept || ''}</td>
+                <td>${item.industry || ''}</td>
+                <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+            `;
+            entryTableBody.appendChild(tr);
+        });
+        const total = entryFilteredData.length;
+        const totalPages = Math.ceil(total / entryPageSize) || 1;
+        entryTotalPages.textContent = totalPages;
+        entryTotalRecords.textContent = total;
+        entryPageInput.value = entryCurrentPage;
+        entryPageInput.max = totalPages;
+        entryPrevPage.disabled = entryCurrentPage <= 1;
+        entryNextPage.disabled = entryCurrentPage >= totalPages;
+    }
+
+    // 入场按钮事件
+    btnEntryCheck.addEventListener('click', function() {
+        const btn = this;
+        if (!entryArea.classList.contains('hidden')) {
+            entryArea.classList.add('hidden');
+            return;
+        }
+        btn.disabled = true;
+        btn.textContent = '⏳ 分析中...';
+        appendLog('🚀 开始执行入场判断...', 'info');
+        fetch('/api/check_entry', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const list = data.data || [];
+                    appendLog(`✅ 入场判断完成，发现 ${list.length} 个信号`, 'success');
+                    showEntryResults(list);
+                } else {
+                    throw new Error(data.error || '执行失败');
+                }
+            })
+            .catch(err => {
+                appendLog(`❌ 入场判断失败: ${err.message}`, 'error');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = '🚀 入场判断(多线)';
+            });
+    });
+
+    btnCloseEntry.addEventListener('click', function() {
+        entryArea.classList.add('hidden');
+    });
+
+    entrySearchInput.addEventListener('input', function() {
+        const keyword = this.value.trim().toLowerCase();
+        if (!keyword) {
+            entryFilteredData = entryData.slice();
+        } else {
+            entryFilteredData = entryData.filter(item =>
+                item.symbol.toLowerCase().includes(keyword) ||
+                (item.touch_type && item.touch_type.toLowerCase().includes(keyword))
+            );
+        }
+        entryCurrentPage = 1;
+        renderEntryTable();
+    });
+    btnClearEntrySearch.addEventListener('click', function() {
+        entrySearchInput.value = '';
+        entryFilteredData = entryData.slice();
+        entryCurrentPage = 1;
+        renderEntryTable();
+    });
+
+    entryPrevPage.addEventListener('click', function() {
+        if (entryCurrentPage > 1) { entryCurrentPage--; renderEntryTable(); }
+    });
+    entryNextPage.addEventListener('click', function() {
+        const totalPages = Math.ceil(entryFilteredData.length / entryPageSize) || 1;
+        if (entryCurrentPage < totalPages) { entryCurrentPage++; renderEntryTable(); }
+    });
+    entryPageInput.addEventListener('change', function() {
+        let page = parseInt(this.value);
+        const totalPages = Math.ceil(entryFilteredData.length / entryPageSize) || 1;
+        if (isNaN(page) || page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+        entryCurrentPage = page;
+        renderEntryTable();
+    });
+
+    function loadKlineWithEntry(row) {
+        const symbol = row.dataset.symbol;
+        const support = parseFloat(row.dataset.support);
+        let buyPoint = row.dataset.buyPoint;
+        const buyPrice = parseFloat(row.dataset.buyPrice);
+        const prevClose = parseFloat(row.dataset.prevClose);
+        const limit = document.getElementById('limitSelect').value;
+        if (!symbol) { appendLog('❌ 未找到股票代码', 'error'); return; }
+        const markers = [];
+        if (!isNaN(support) && support > 0) {
+            markers.push({ type: 'level', price: support, label: '支撑线', color: '#ff9800' });
+        }
+        if (buyPoint) {
+            let buyDate = '';
+            try {
+                const dateObj = new Date(buyPoint);
+                if (!isNaN(dateObj.getTime())) {
+                    buyDate = dateObj.toISOString().slice(0, 10);
+                } else {
+                    buyDate = buyPoint.slice(0, 10);
+                }
+            } catch (e) {
+                buyDate = buyPoint.slice(0, 10);
+            }
+            markers.push({
+                type: 'buy_point',
+                trade_date: buyDate,
+                price: buyPrice,
+                label: 'U左',
+                color: '#4caf50'
+            });
+        }
+        if (!isNaN(prevClose) && prevClose > 0) {
+            markers.push({ type: 'level', price: prevClose, label: '前日收盘', color: '#9c27b0' });
+        }
+        document.getElementById('loadingDiv').style.display = 'block';
+        document.getElementById('resultArea').classList.add('hidden');
+        document.getElementById('status').textContent = '⏳ 加载K线...';
+        const industryContainer = document.getElementById('industryChartContainer');
+        if (industryContainer) industryContainer.style.display = 'none';
+        fetch(`/api/kline?code=${symbol}&limit=${limit}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('resultArea').classList.remove('hidden');
+                document.getElementById('status').textContent = '✅ 加载完成（含入场标记）';
+                renderChart(data, markers);
+                renderTable(data);
+                document.getElementById('klineInfo').textContent = data.length + ' 根K线';
+                document.getElementById('tableCount').textContent = data.length + ' 条';
+            })
+            .catch(err => {
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('status').textContent = '❌ 加载失败';
+                appendLog(`❌ 加载K线失败: ${err.message}`, 'error');
+            });
+    }
+</script>
+{% endblock %}

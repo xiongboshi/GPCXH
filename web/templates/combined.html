@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- ====== 组合图形控制按钮 ====== -->
+<div class="controls">
+    <div class="group" style="flex:0.5;min-width:80px;">
+        <label>&nbsp;</label>
+        <button class="btn btn-secondary" id="btnRunStrategyParallel">🔍基础U形(多线)</button>
+    </div>
+    <div class="group" style="flex:0.5;min-width:80px;">
+        <label>&nbsp;</label>
+        <button class="btn btn-secondary" id="btnRunCombinedParallel">🔀组合图形(多线)</button>
+    </div>
+</div>
+
+<!-- ====== 基础策略列表（tactics） ====== -->
+<div id="tacticsArea" class="hidden">
+    <div class="header-row">
+        <span>📈 基础策略列表</span>
+        <button class="btn btn-sm btn-secondary" id="btnCloseTactics">✕ 关闭</button>
+    </div>
+    <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+        <input type="text" id="tacticsSearchInput" placeholder="🔍 搜索代码..." style="flex:1;">
+        <button class="btn btn-sm btn-secondary" id="btnClearTacticsSearch" style="padding:6px 16px;">✕ 清除</button>
+    </div>
+    <div style="max-height:400px; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr>
+                    <th>代码</th>
+                    <th>日期</th>
+                    <th>方向</th>
+                    <th>k数量</th>
+                    <th>U形点</th>
+                    <th>价格</th>
+                    <th>U背价格</th>
+                    <th>概念</th>
+                    <th>行业</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="tacticsTableBody"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="tacticsPagination">
+        <button id="tacticsPrevPage">◀ 上一页</button>
+        <span class="page-info">第 <input type="number" id="tacticsPageInput" class="page-input" value="1" min="1"> 页 / 共
+            <span id="tacticsTotalPages">1</span> 页</span>
+        <button id="tacticsNextPage">下一页 ▶</button>
+        <span class="page-info">总记录: <span id="tacticsTotalRecords">0</span></span>
+    </div>
+</div>
+
+<!-- ====== 组合图形列表（combined） ====== -->
+<div id="combinedArea" class="hidden">
+    <div class="header-row">
+        <span>📈 组合图形列表</span>
+        <button class="btn btn-sm btn-secondary" id="btnCloseCombined">✕ 关闭</button>
+    </div>
+    <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
+        <input type="text" id="combinedSearchInput" placeholder="🔍 搜索代码,形态类型 ..." style="flex:1;">
+        <button class="btn btn-sm btn-secondary" id="btnClearCombinedSearch" style="padding:6px 16px;">✕ 清除</button>
+    </div>
+    <div style="max-height:400px; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr>
+                    <th>代码</th>
+                    <th>形态类型</th>
+                    <th>方向</th>
+                    <th>U形价格</th>
+                    <th>U形时间</th>
+                    <th>概念</th>
+                    <th>行业</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="combinedTableBody"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="combinedPagination">
+        <button id="combinedPrevPage">◀ 上一页</button>
+        <span class="page-info">第 <input type="number" id="combinedPageInput" class="page-input" value="1" min="1"> 页 /
+            共 <span id="combinedTotalPages">1</span> 页</span>
+        <button id="combinedNextPage">下一页 ▶</button>
+        <span class="page-info">总记录: <span id="combinedTotalRecords">0</span></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ============================================================
+    // 基础策略（tactics）特有变量
+    // ============================================================
+    let tacticsData = [];
+    let tacticsCurrentPage = 1;
+    let tacticsPageSize = 20;
+    let tacticsFilteredData = [];
+
+    // 组合图形（combined）特有变量
+    let combinedData = [];
+    let combinedCurrentPage = 1;
+    let combinedPageSize = 20;
+    let combinedFilteredData = [];
+
+    // ============================================================
+    // DOM 元素获取
+    // ============================================================
+    // tactics
+    const tacticsArea = document.getElementById('tacticsArea');
+    const tacticsTableBody = document.getElementById('tacticsTableBody');
+    const tacticsSearchInput = document.getElementById('tacticsSearchInput');
+    const btnClearTacticsSearch = document.getElementById('btnClearTacticsSearch');
+    const tacticsPagination = document.getElementById('tacticsPagination');
+    const tacticsPrevPage = document.getElementById('tacticsPrevPage');
+    const tacticsNextPage = document.getElementById('tacticsNextPage');
+    const tacticsPageInput = document.getElementById('tacticsPageInput');
+    const tacticsTotalPages = document.getElementById('tacticsTotalPages');
+    const tacticsTotalRecords = document.getElementById('tacticsTotalRecords');
+    const btnCloseTactics = document.getElementById('btnCloseTactics');
+
+    // combined
+    const combinedArea = document.getElementById('combinedArea');
+    const combinedTableBody = document.getElementById('combinedTableBody');
+    const combinedSearchInput = document.getElementById('combinedSearchInput');
+    const btnClearCombinedSearch = document.getElementById('btnClearCombinedSearch');
+    const combinedPagination = document.getElementById('combinedPagination');
+    const combinedPrevPage = document.getElementById('combinedPrevPage');
+    const combinedNextPage = document.getElementById('combinedNextPage');
+    const combinedPageInput = document.getElementById('combinedPageInput');
+    const combinedTotalPages = document.getElementById('combinedTotalPages');
+    const combinedTotalRecords = document.getElementById('combinedTotalRecords');
+    const btnCloseCombined = document.getElementById('btnCloseCombined');
+
+    // 按钮
+    const btnRunStrategyParallel = document.getElementById('btnRunStrategyParallel');
+    const btnRunCombinedParallel = document.getElementById('btnRunCombinedParallel');
+
+    // ============================================================
+    // 执行锁，防止重复点击
+    // ============================================================
+    let isStrategyRunning = false;
+    let isCombinedRunning = false;
+
+    // ============================================================
+    // 基础策略渲染函数（完全复制自单页）
+    // ============================================================
+    function renderTacticsTable() {
+        const start = (tacticsCurrentPage - 1) * tacticsPageSize;
+        const end = Math.min(start + tacticsPageSize, tacticsFilteredData.length);
+        const pageData = tacticsFilteredData.slice(start, end);
+        tacticsTableBody.innerHTML = '';
+        if (pageData.length === 0) {
+            tacticsTableBody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6a7a8e;padding:20px;">暂无策略数据</td></tr>';
+            return;
+        }
+        pageData.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.dataset.symbol = item.symbol;
+            tr.dataset.date = item.date;
+            tr.dataset.upoint = item.u形图形_内突_u_point || '';
+            tr.addEventListener('click', function () {
+                document.querySelectorAll('#tacticsTableBody tr').forEach(row => row.classList.remove('selected'));
+                this.classList.add('selected');
+                loadKlineWithTactics(this);
+            });
+            let uBackPrice = '';
+            if (item.direction === '买') {
+                uBackPrice = fmtPrice(item.u形图形_内突_u_bot_price);
+            } else if (item.direction === '卖') {
+                uBackPrice = fmtPrice(item.u形图形_内突_u_top_price);
+            }
+            tr.innerHTML = `
+                <td>${item.symbol}</td>
+                <td>${item.date}</td>
+                <td>${item.direction}</td>
+                <td>${item.u形图形_内突_u_k_num || ''}</td>
+                <td>${item.u形图形_内突_u_point || ''}</td>
+                <td>${fmtPrice(item.u形图形_内突_u_price)}</td>
+                <td>${uBackPrice}</td>
+                <td>${item.concept || ''}</td>
+                <td>${item.industry || ''}</td>
+                <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+            `;
+            tacticsTableBody.appendChild(tr);
+        });
+
+        const total = tacticsFilteredData.length;
+        const totalPages = Math.ceil(total / tacticsPageSize) || 1;
+        tacticsTotalPages.textContent = totalPages;
+        tacticsTotalRecords.textContent = total;
+        tacticsPageInput.value = tacticsCurrentPage;
+        tacticsPageInput.max = totalPages;
+        tacticsPrevPage.disabled = tacticsCurrentPage <= 1;
+        tacticsNextPage.disabled = tacticsCurrentPage >= totalPages;
+    }
+
+    // 加载基础策略数据
+    function loadTacticsAndRender() {
+        fetch('/api/tactics')
+            .then(res => res.json())
+            .then(data => {
+                if (!Array.isArray(data)) data = [];
+                tacticsData = data;
+                tacticsFilteredData = data.slice();
+                tacticsCurrentPage = 1;
+                renderTacticsTable();
+                tacticsArea.classList.remove('hidden');
+            })
+            .catch(err => appendLog(`❌ 加载策略列表失败: ${err.message}`, 'error'));
+    }
+
+    // 加载带策略标记的K线
+    function loadKlineWithTactics(row) {
+        const code = row.dataset.symbol;
+        const datePoint = row.dataset.date;
+        const uPoint = row.dataset.upoint;
+        const limit = limitSelect.value;
+        if (!code) { appendLog('❌ 未找到股票代码', 'error'); return; }
+        document.getElementById('loadingDiv').style.display = 'block';
+        document.getElementById('resultArea').classList.add('hidden');
+        document.getElementById('status').textContent = '⏳ 加载K线...';
+        document.getElementById('industryChartContainer').style.display = 'none';
+        let url = `/api/kline_with_tactics?code=${code}&limit=${limit}`;
+        if (datePoint) url += `&date_point=${datePoint}`;
+        if (uPoint) url += `&u_point=${uPoint}`;
+        fetch(url)
+            .then(res => res.json())
+            .then(result => {
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('resultArea').classList.remove('hidden');
+                document.getElementById('status').textContent = '✅ 加载完成（含策略标记）';
+                renderChart(result.data, result.markers);
+                renderTable(result.data);
+                document.getElementById('klineInfo').textContent = result.data.length + ' 根K线';
+                document.getElementById('tableCount').textContent = result.data.length + ' 条';
+            })
+            .catch(err => {
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('status').textContent = '❌ 加载失败';
+                appendLog(`❌ 加载K线失败: ${err.message}`, 'error');
+            });
+    }
+
+    // ============================================================
+    // 组合图形渲染函数（完全复制自单页）
+    // ============================================================
+    function renderCombinedTable() {
+        const start = (combinedCurrentPage - 1) * combinedPageSize;
+        const end = Math.min(start + combinedPageSize, combinedFilteredData.length);
+        const pageData = combinedFilteredData.slice(start, end);
+        combinedTableBody.innerHTML = '';
+        if (pageData.length === 0) {
+            combinedTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6a7a8e;padding:20px;">暂无组合图形信号</td></tr>';
+        } else {
+            pageData.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.dataset.symbol = item.symbol;
+                tr.dataset.sellPrice = item.大的_U形_u_price || '';
+                tr.dataset.sellPoint = item.大的_U形_point_time || '';
+                tr.dataset.buyPoint = item.小的_U形_point_time || '';
+                tr.addEventListener('click', function () {
+                    document.querySelectorAll('#combinedTableBody tr').forEach(row => row.classList.remove('selected'));
+                    this.classList.add('selected');
+                    loadKlineWithCombined(this);
+                });
+                tr.innerHTML = `
+                    <td>${item.symbol}</td>
+                    <td>${item.touch_type || ''}</td>
+                    <td>${item.direction}</td>
+                    <td>${fmtPrice(item.小的_U形_u_price)}</td>
+                    <td>${item.大的_U形_datetime || ''}</td>
+                    <td>${item.concept || ''}</td>
+                    <td>${item.industry || ''}</td>
+                    <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+                `;
+                combinedTableBody.appendChild(tr);
+            });
+        }
+        const total = combinedFilteredData.length;
+        const totalPages = Math.ceil(total / combinedPageSize) || 1;
+        combinedTotalPages.textContent = totalPages;
+        combinedTotalRecords.textContent = total;
+        combinedPageInput.value = combinedCurrentPage;
+        combinedPageInput.max = totalPages;
+        combinedPrevPage.disabled = combinedCurrentPage <= 1;
+        combinedNextPage.disabled = combinedCurrentPage >= totalPages;
+    }
+
+    // 加载组合图形数据
+    function loadCombinedAndRender() {
+        fetch('/api/combined')
+            .then(res => res.json())
+            .then(data => {
+                if (!Array.isArray(data)) data = [];
+                combinedData = data;
+                combinedFilteredData = data.slice();
+                combinedCurrentPage = 1;
+                renderCombinedTable();
+                combinedArea.classList.remove('hidden');
+            })
+            .catch(err => appendLog(`❌ 加载组合图形列表失败: ${err.message}`, 'error'));
+    }
+
+    // 加载带组合标记的K线
+    function loadKlineWithCombined(row) {
+        const symbol = row.dataset.symbol;
+        const sellPrice = parseFloat(row.dataset.sellPrice);
+        const buyPoint = row.dataset.buyPoint;
+        const limit = limitSelect.value;
+        if (!symbol) { appendLog('❌ 未找到股票代码', 'error'); return; }
+        document.getElementById('loadingDiv').style.display = 'block';
+        document.getElementById('resultArea').classList.add('hidden');
+        document.getElementById('status').textContent = '⏳ 加载K线...';
+        document.getElementById('industryChartContainer').style.display = 'none';
+        fetch(`/api/kline?code=${symbol}&limit=${limit}`)
+            .then(res => res.json())
+            .then(data => {
+                const markers = [];
+                if (!isNaN(sellPrice) && sellPrice > 0) {
+                    markers.push({ trade_date: null, price: sellPrice, type: 'level', label: '' });
+                }
+                if (buyPoint) {
+                    const buyDate = buyPoint.slice(0, 10);
+                    let buyRow = data.find(d => d.trade_date === buyDate);
+                    if (!buyRow) {
+                        const trimmedDate = buyDate.trim();
+                        buyRow = data.find(d => d.trade_date.trim() === trimmedDate);
+                    }
+                    if (!buyRow) {
+                        const targetDate = new Date(buyDate);
+                        buyRow = data.find(d => {
+                            const dDate = new Date(d.trade_date);
+                            return dDate.getFullYear() === targetDate.getFullYear() &&
+                                dDate.getMonth() === targetDate.getMonth() &&
+                                dDate.getDate() === targetDate.getDate();
+                        });
+                    }
+                    if (buyRow) {
+                        markers.push({ trade_date: buyDate, price: buyRow.close_price, type: 'buy_point', label: 'U左' });
+                    } else {
+                        appendLog(`⚠️ 未找到U左日期 ${buyDate} 的K线数据`, 'info');
+                    }
+                }
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('resultArea').classList.remove('hidden');
+                document.getElementById('status').textContent = '✅ 加载完成（含组合标记）';
+                renderChart(data, markers);
+                renderTable(data);
+                document.getElementById('klineInfo').textContent = data.length + ' 根K线';
+                document.getElementById('tableCount').textContent = data.length + ' 条';
+            })
+            .catch(err => {
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('status').textContent = '❌ 加载失败';
+                appendLog(`❌ 加载K线失败: ${err.message}`, 'error');
+            });
+    }
+
+    // ============================================================
+    // 执行基础U形检测（多线程）
+    // ============================================================
+    function runStrategyParallel() {
+        if (isStrategyRunning) {
+            appendLog('⏳ 基础U形检测正在执行中，请勿重复点击', 'info');
+            return;
+        }
+        isStrategyRunning = true;
+        appendLog('🗑️ 清空策略表...', 'info');
+        fetch('/api/clear_tactics', { method: 'POST' })
+            .then(res => res.json())
+            .then(clearResult => {
+                if (clearResult.success) {
+                    appendLog('✅ 策略表已清空', 'success');
+                    appendLog('🚀 开始执行多线程基础U形检测...', 'info');
+                    return fetch('/api/run_strategy_parallel', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ strategy_type: 'full', num_workers: 8 })
+                    });
+                } else {
+                    throw new Error(clearResult.error || '清空失败');
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    appendLog('✅ 多线程基础U形检测完成，信号已保存', 'success');
+                    loadTacticsAndRender();
+                } else {
+                    throw new Error(data.message || '策略执行失败');
+                }
+            })
+            .catch(err => appendLog(`❌ 多线程基础U形检测失败: ${err.message}`, 'error'))
+            .finally(() => {
+                isStrategyRunning = false;
+            });
+    }
+
+    // ============================================================
+    // 执行组合图形检测（多线程）
+    // ============================================================
+    function runCombinedParallel() {
+        if (isCombinedRunning) {
+            appendLog('⏳ 组合图形检测正在执行中，请勿重复点击', 'info');
+            return;
+        }
+        isCombinedRunning = true;
+        appendLog('🔀 开始执行多线程组合图形检测...', 'info');
+
+        fetch('/api/run_combined_parallel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ strategy_type: 'full', num_workers: 8 })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    appendLog(`✅ 多线程组合图形检测完成，发现 ${data.count || 0} 个信号`, 'success');
+                    loadCombinedAndRender();
+                } else {
+                    throw new Error(data.message || '执行失败');
+                }
+            })
+            .catch(err => appendLog(`❌ 多线程组合图形检测失败: ${err.message}`, 'error'))
+            .finally(() => {
+                isCombinedRunning = false;
+            });
+    }
+
+    // ============================================================
+    // 事件绑定（在 DOMContentLoaded 中一次性绑定）
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function () {
+        // 基础U形(多线) 按钮
+        btnRunStrategyParallel.addEventListener('click', function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = '⏳ 执行中...';
+            // 执行检测（异步）
+            runStrategyParallel();
+            // 轮询检测状态，恢复按钮
+            const checkInterval = setInterval(() => {
+                if (!isStrategyRunning) {
+                    btn.disabled = false;
+                    btn.textContent = '🔍基础U形(多线)';
+                    clearInterval(checkInterval);
+                }
+            }, 500);
+        });
+
+        // 组合图形(多线) 按钮
+        btnRunCombinedParallel.addEventListener('click', function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = '⏳ 执行中...';
+            runCombinedParallel();
+            const checkInterval = setInterval(() => {
+                if (!isCombinedRunning) {
+                    btn.disabled = false;
+                    btn.textContent = '🔀组合图形(多线)';
+                    clearInterval(checkInterval);
+                }
+            }, 500);
+        });
+
+        // 关闭按钮
+        btnCloseTactics.addEventListener('click', function () {
+            tacticsArea.classList.add('hidden');
+        });
+        btnCloseCombined.addEventListener('click', function () {
+            combinedArea.classList.add('hidden');
+        });
+
+        // 基础策略搜索
+        tacticsSearchInput.addEventListener('input', function () {
+            const keyword = this.value.trim().toLowerCase();
+            if (!keyword) {
+                tacticsFilteredData = tacticsData.slice();
+            } else {
+                tacticsFilteredData = tacticsData.filter(item => item.symbol.toLowerCase().includes(keyword));
+            }
+            tacticsCurrentPage = 1;
+            renderTacticsTable();
+        });
+        btnClearTacticsSearch.addEventListener('click', function () {
+            tacticsSearchInput.value = '';
+            tacticsFilteredData = tacticsData.slice();
+            tacticsCurrentPage = 1;
+            renderTacticsTable();
+        });
+
+        // 组合图形搜索
+        combinedSearchInput.addEventListener('input', function () {
+            const keyword = this.value.trim().toLowerCase();
+            if (!keyword) {
+                combinedFilteredData = combinedData.slice();
+            } else {
+                combinedFilteredData = combinedData.filter(item =>
+                    item.symbol.toLowerCase().includes(keyword) ||
+                    (item.touch_type && item.touch_type.toLowerCase().includes(keyword))
+                );
+            }
+            combinedCurrentPage = 1;
+            renderCombinedTable();
+        });
+        btnClearCombinedSearch.addEventListener('click', function () {
+            combinedSearchInput.value = '';
+            combinedFilteredData = combinedData.slice();
+            combinedCurrentPage = 1;
+            renderCombinedTable();
+        });
+
+        // 基础策略分页
+        tacticsPrevPage.addEventListener('click', function () {
+            if (tacticsCurrentPage > 1) { tacticsCurrentPage--; renderTacticsTable(); }
+        });
+        tacticsNextPage.addEventListener('click', function () {
+            const totalPages = Math.ceil(tacticsFilteredData.length / tacticsPageSize) || 1;
+            if (tacticsCurrentPage < totalPages) { tacticsCurrentPage++; renderTacticsTable(); }
+        });
+        tacticsPageInput.addEventListener('change', function () {
+            let page = parseInt(this.value);
+            const totalPages = Math.ceil(tacticsFilteredData.length / tacticsPageSize) || 1;
+            if (isNaN(page) || page < 1) page = 1;
+            if (page > totalPages) page = totalPages;
+            tacticsCurrentPage = page;
+            renderTacticsTable();
+        });
+
+        // 组合图形分页
+        combinedPrevPage.addEventListener('click', function () {
+            if (combinedCurrentPage > 1) { combinedCurrentPage--; renderCombinedTable(); }
+        });
+        combinedNextPage.addEventListener('click', function () {
+            const totalPages = Math.ceil(combinedFilteredData.length / combinedPageSize) || 1;
+            if (combinedCurrentPage < totalPages) { combinedCurrentPage++; renderCombinedTable(); }
+        });
+        combinedPageInput.addEventListener('change', function () {
+            let page = parseInt(this.value);
+            const totalPages = Math.ceil(combinedFilteredData.length / combinedPageSize) || 1;
+            if (isNaN(page) || page < 1) page = 1;
+            if (page > totalPages) page = totalPages;
+            combinedCurrentPage = page;
+            renderCombinedTable();
+        });
+    });
+</script>
+{% endblock %}

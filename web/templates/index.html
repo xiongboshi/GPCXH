@@ -548,7 +548,11 @@
             width: 8%;
         }
 
-        /* 操作按钮 */
+        #industryChart {
+            width: 100%;
+            height: 400px;
+            background: #0a0e17;
+        }
     </style>
 </head>
 
@@ -674,7 +678,9 @@
         <div id="ladderArea" class="hidden">
             <div class="header-row">
                 <span>📊 连板天梯</span>
-                <span id="ladderStats" style="font-size:12px; color:#6a7a8e; margin-left:15px;"></span>
+                <div id="ladderStats"
+                    style="font-size:12px; color:#b3aaaa; margin-left:15px; display:block; white-space:pre-wrap; line-height:1.6;">
+                </div>
                 <button class="btn btn-sm btn-secondary" id="btnCloseLadder">✕ 关闭</button>
             </div>
             <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center;">
@@ -828,6 +834,21 @@
             <div>加载数据中...</div>
         </div>
 
+
+        <!-- 行业K线（新增） -->
+        <div class="chart-container" id="industryChartContainer" style="display:none;">
+            <div class="chart-header">
+                <div class="chart-title">📊 行业K线 <span class="badge" id="industryKlineInfo">加载中...</span></div>
+                <div style="display:flex;gap:12px;font-size:11px;color:#6a7a8e;">
+                    <span style="color:#ff1744;">● 阳线</span>
+                    <span style="color:#00c853;">● 阴线</span>
+                    <span style="color:#f0b90b;margin-left:8px;">⸺ 均价</span>
+                </div>
+            </div>
+            <div id="industryChart"></div>
+        </div>
+
+
         <!-- 结果展示区域 -->
         <div id="resultArea" class="hidden">
             <div class="chart-container">
@@ -863,6 +884,8 @@
                 </div>
             </div>
         </div>
+
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
@@ -873,6 +896,7 @@
         let chart = null;
         let selectedStock = null;
         let currentKlineData = null;
+        let industryChart = null;   // 行业K线图表实例
 
         const stockInput = document.getElementById('stockInput');
         const suggestionsDiv = document.getElementById('suggestions');
@@ -1008,7 +1032,7 @@
         }
 
         // ============================================================
-        // 查询 K 线
+        // 查询 K 线（个股，不显示行业）
         // ============================================================
         queryBtn.addEventListener('click', function () {
             const code = selectedStock ? selectedStock.thscode : null;
@@ -1017,6 +1041,10 @@
             document.getElementById('loadingDiv').style.display = 'block';
             document.getElementById('resultArea').classList.add('hidden');
             document.getElementById('status').textContent = '⏳ 加载中...';
+
+            // ★ 隐藏行业K线容器
+            document.getElementById('industryChartContainer').style.display = 'none';
+
             fetch(`/api/kline?code=${code}&limit=${limit}`)
                 .then(res => {
                     if (!res.ok) throw new Error('请求失败');
@@ -1070,15 +1098,15 @@
                         stocks.forEach(item => {
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
-                                <td>${item.thscode}</td>
-                                <td>${item.name || ''}</td>
-                                <td>${item.trade_date}</td>
-                                <td>${fmtPrice(item.close_price)}</td>
-                                <td style="color:#f0b90b;">+${item.pct_chg.toFixed(2)}%</td>
-                                <td>${item.concept || ''}</td>
-                                <td>${item.industry || ''}</td>
-                                <td><button class="btn btn-sm btn-secondary" data-code="${item.thscode}" onclick="loadKlineWithMarker('${item.thscode}')">查看K线</button></td>
-                            `;
+                        <td>${item.thscode}</td>
+                        <td>${item.name || ''}</td>
+                        <td>${item.trade_date}</td>
+                        <td>${fmtPrice(item.close_price)}</td>
+                        <td style="color:#f0b90b;">+${item.pct_chg.toFixed(2)}%</td>
+                        <td>${item.concept || ''}</td>
+                        <td>${item.industry || ''}</td>
+                        <td><button class="btn btn-sm btn-secondary" data-code="${item.thscode}" onclick="loadKlineWithMarker('${item.thscode}')">查看K线</button></td>
+                    `;
                             limitUpTableBody.appendChild(tr);
                         });
                     }
@@ -1096,6 +1124,8 @@
             document.getElementById('loadingDiv').style.display = 'block';
             document.getElementById('resultArea').classList.add('hidden');
             document.getElementById('status').textContent = '⏳ 加载中...';
+            // ★ 隐藏行业K线容器
+            document.getElementById('industryChartContainer').style.display = 'none';
             fetch(`/api/kline_with_marker?code=${code}&limit=${limit}`)
                 .then(res => res.json())
                 .then(result => {
@@ -1155,17 +1185,17 @@
                         uBackPrice = fmtPrice(item.u形图形_内突_u_top_price);
                     }
                     tr.innerHTML = `
-                        <td>${item.symbol}</td>
-                        <td>${item.date}</td>
-                        <td>${item.direction}</td>
-                        <td>${item.u形图形_内突_u_k_num || ''}</td>
-                        <td>${item.u形图形_内突_u_point || ''}</td>
-                        <td>${fmtPrice(item.u形图形_内突_u_price)}</td>
-                        <td>${uBackPrice}</td>
-                        <td>${item.concept || ''}</td>
-                        <td>${item.industry || ''}</td>
-                        <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
-                    `;
+                <td>${item.symbol}</td>
+                <td>${item.date}</td>
+                <td>${item.direction}</td>
+                <td>${item.u形图形_内突_u_k_num || ''}</td>
+                <td>${item.u形图形_内突_u_point || ''}</td>
+                <td>${fmtPrice(item.u形图形_内突_u_price)}</td>
+                <td>${uBackPrice}</td>
+                <td>${item.concept || ''}</td>
+                <td>${item.industry || ''}</td>
+                <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+            `;
                     tacticsTableBody.appendChild(tr);
                 });
             }
@@ -1348,15 +1378,15 @@
                         loadKlineWithCombined(this);
                     });
                     tr.innerHTML = `
-                        <td>${item.symbol}</td>
-                        <td>${item.touch_type || ''}</td>
-                        <td>${item.direction}</td>
-                        <td>${fmtPrice(item.小的_U形_u_price)}</td>
-                        <td>${item.大的_U形_datetime || ''}</td>
-                        <td>${item.concept || ''}</td>
-                        <td>${item.industry || ''}</td>
-                        <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
-                    `;
+                <td>${item.symbol}</td>
+                <td>${item.touch_type || ''}</td>
+                <td>${item.direction}</td>
+                <td>${fmtPrice(item.小的_U形_u_price)}</td>
+                <td>${item.大的_U形_datetime || ''}</td>
+                <td>${item.concept || ''}</td>
+                <td>${item.industry || ''}</td>
+                <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+            `;
                     combinedTableBody.appendChild(tr);
                 });
             }
@@ -1508,6 +1538,8 @@
             document.getElementById('loadingDiv').style.display = 'block';
             document.getElementById('resultArea').classList.add('hidden');
             document.getElementById('status').textContent = '⏳ 加载K线...';
+            // ★ 隐藏行业K线容器
+            document.getElementById('industryChartContainer').style.display = 'none';
             fetch(`/api/kline?code=${symbol}&limit=${limit}`)
                 .then(res => res.json())
                 .then(data => {
@@ -1561,6 +1593,8 @@
             document.getElementById('loadingDiv').style.display = 'block';
             document.getElementById('resultArea').classList.add('hidden');
             document.getElementById('status').textContent = '⏳ 加载K线...';
+            // ★ 隐藏行业K线容器
+            document.getElementById('industryChartContainer').style.display = 'none';
             let url = `/api/kline_with_tactics?code=${code}&limit=${limit}`;
             if (datePoint) url += `&date_point=${datePoint}`;
             if (uPoint) url += `&u_point=${uPoint}`;
@@ -1630,18 +1664,18 @@
                     loadKlineWithEntry(this);
                 });
                 tr.innerHTML = `
-                    <td>${item.symbol}</td>
-                    <td>${item.touch_type || ''}</td>
-                    <td>${item.大的_U形_datetime || ''}</td>
-                    <td>${fmtPrice(item.小的_U形_u_price)}</td>
-                    <td>${fmtPrice(item.大的_U形_u_price)}</td>
-                    <td>${item.limit_date || ''}</td>
-                    <td>${fmtPrice(item.limit_close)}</td>
-                    <td>${fmtPrice(item.prev_close)}</td>
-                    <td>${item.concept || ''}</td>
-                    <td>${item.industry || ''}</td>
-                    <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
-                `;
+            <td>${item.symbol}</td>
+            <td>${item.touch_type || ''}</td>
+            <td>${item.大的_U形_datetime || ''}</td>
+            <td>${fmtPrice(item.小的_U形_u_price)}</td>
+            <td>${fmtPrice(item.大的_U形_u_price)}</td>
+            <td>${item.limit_date || ''}</td>
+            <td>${fmtPrice(item.limit_close)}</td>
+            <td>${fmtPrice(item.prev_close)}</td>
+            <td>${item.concept || ''}</td>
+            <td>${item.industry || ''}</td>
+            <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+        `;
                 entryTableBody.appendChild(tr);
             });
 
@@ -1742,6 +1776,8 @@
             document.getElementById('loadingDiv').style.display = 'block';
             document.getElementById('resultArea').classList.add('hidden');
             document.getElementById('status').textContent = '⏳ 加载K线...';
+            // ★ 隐藏行业K线容器
+            document.getElementById('industryChartContainer').style.display = 'none';
 
             fetch(`/api/kline?code=${symbol}&limit=${limit}`)
                 .then(res => res.json())
@@ -1799,10 +1835,7 @@
         });
 
         // ============================================================
-        // 连板天梯 ★新增
-        // ============================================================
-        // ============================================================
-        // 连板天梯 ★修复：分离加载与显示逻辑
+        // 连板天梯 ★新增 行业对比功能
         // ============================================================
         const ladderDateInput = document.getElementById('ladderDateInput');
         const btnClearLadderDate = document.getElementById('btnClearLadderDate');
@@ -1827,51 +1860,55 @@
         }
 
         function renderLadderTable() {
-
-
-            // 计算统计信息
-            const conceptCount = {};
-            const industryCount = {};
-            ladderFilteredData.forEach(item => {
-                // 概念可能为逗号分隔的字符串，需要拆分
-                if (item.concept) {
-                    const concepts = item.concept.split(',').map(s => s.trim()).filter(s => s);
-                    concepts.forEach(c => {
-                        conceptCount[c] = (conceptCount[c] || 0) + 1;
-                    });
+            // ===== 统计信息（原样） =====
+            if (ladderFilteredData.length > 0) {
+                let statsLines = [];
+                const maxBoard = Math.max(...ladderFilteredData.map(item => Number(item.board_num) || 0));
+                if (maxBoard > 0) {
+                    const topStocks = ladderFilteredData.filter(item => Number(item.board_num) === maxBoard);
+                    const stockInfo = topStocks.map(item => {
+                        const name = item.name || item.thscode;
+                        const industry = item.industry || '--';
+                        return `${name}(${industry})`;
+                    }).join('、');
+                    statsLines.push(`🔥 最高板 ${maxBoard}板: ${stockInfo}`);
                 }
-                if (item.industry) {
-                    const industries = item.industry.split(',').map(s => s.trim()).filter(s => s);
-                    industries.forEach(i => {
-                        industryCount[i] = (industryCount[i] || 0) + 1;
-                    });
+                const conceptCount = {};
+                const industryCount = {};
+                ladderFilteredData.forEach(item => {
+                    if (item.concept) {
+                        const concepts = item.concept.split(',').map(s => s.trim()).filter(s => s);
+                        concepts.forEach(c => {
+                            if (c === '融资融券' || c === '深股通' || c === '沪股通' || c === '国企改革') return;
+                            conceptCount[c] = (conceptCount[c] || 0) + 1;
+                        });
+                    }
+                    if (item.industry) {
+                        const industries = item.industry.split(',').map(s => s.trim()).filter(s => s);
+                        industries.forEach(i => {
+                            industryCount[i] = (industryCount[i] || 0) + 1;
+                        });
+                    }
+                });
+                const topConcepts = Object.entries(conceptCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => `${name}(${count})`).join(' ');
+                const topIndustries = Object.entries(industryCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => `${name}(${count})`).join(' ');
+                let topText = '';
+                if (topConcepts) topText += `概念TOP3: ${topConcepts}`;
+                if (topIndustries) {
+                    if (topText) topText += ' | ';
+                    topText += `行业TOP3: ${topIndustries}`;
                 }
-            });
-
-            // 排序取前3
-            const topConcepts = Object.entries(conceptCount)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 3)
-                .map(([name, count]) => `${name}(${count})`)
-                .join(' ');
-
-            const topIndustries = Object.entries(industryCount)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 3)
-                .map(([name, count]) => `${name}(${count})`)
-                .join(' ');
-
-            let statsText = '';
-            if (topConcepts) statsText += `概念TOP3: ${topConcepts}`;
-            if (topIndustries) {
-                if (statsText) statsText += ' | ';
-                statsText += `行业TOP3: ${topIndustries}`;
+                if (topText) statsLines.push(topText);
+                const statsEl = document.getElementById('ladderStats');
+                statsEl.innerHTML = statsLines.join('<br>');
+                statsEl.style.color = '#ffffff';
+            } else {
+                const statsEl = document.getElementById('ladderStats');
+                statsEl.innerHTML = '';
+                statsEl.style.color = '#ffffff';
             }
-            document.getElementById('ladderStats').textContent = statsText;
 
-            
-
-            // 分页
+            // 表格内容
             const start = (ladderCurrentPage - 1) * ladderPageSize;
             const end = Math.min(start + ladderPageSize, ladderFilteredData.length);
             const pageData = ladderFilteredData.slice(start, end);
@@ -1884,24 +1921,25 @@
                 const tr = document.createElement('tr');
                 tr.dataset.thscode = item.thscode;
                 tr.dataset.name = item.name;
-                // 点击行跳转到查询
+                // ★ 取第一个行业作为主行业
+                const mainIndustry = item.industry ? item.industry.split(',')[0].trim() : '';
+                tr.dataset.industry = mainIndustry;
+                // ★ 点击行触发加载股票+行业K线
                 tr.addEventListener('click', function () {
-                    // 填充搜索框并查询
                     const code = this.dataset.thscode;
                     const name = this.dataset.name;
-                    stockInput.value = code + (name ? ' (' + name + ')' : '');
-                    selectedStock = { thscode: code, name: name };
-                    queryBtn.click();
+                    const industry = this.dataset.industry;
+                    loadKlineWithIndustry(code, name, industry);
                 });
                 tr.innerHTML = `
-                    <td>${item.thscode}</td>
-                    <td>${item.name || ''}</td>
-                    <td>${item.board_num || ''}</td>
-                    <td>${item.date || ''}</td>
-                    <td>${item.concept || ''}</td>
-                    <td>${item.industry || ''}</td>
-                    <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
-                `;
+            <td>${item.thscode}</td>
+            <td>${item.name || ''}</td>
+            <td>${item.board_num || ''}</td>
+            <td>${item.date || ''}</td>
+            <td>${item.concept || ''}</td>
+            <td>${item.industry || ''}</td>
+            <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+        `;
                 ladderTableBody.appendChild(tr);
             });
 
@@ -1915,6 +1953,50 @@
             ladderNextPage.disabled = ladderCurrentPage >= totalPages;
         }
 
+        // ★ 新增：加载股票+行业K线（独立图表）
+        function loadKlineWithIndustry(code, name, industry) {
+            if (!code) { appendLog('❌ 未找到股票代码', 'error'); return; }
+            const limit = limitSelect.value;
+            document.getElementById('loadingDiv').style.display = 'block';
+            document.getElementById('resultArea').classList.add('hidden');
+            document.getElementById('status').textContent = '⏳ 加载K线及行业对比...';
+
+            const stockUrl = `/api/kline?code=${code}&limit=${limit}`;
+            const industryUrl = industry ? `/api/industry_kline?industry=${encodeURIComponent(industry)}&limit=${limit}` : null;
+
+            Promise.all([
+                fetch(stockUrl).then(res => res.json()),
+                industryUrl ? fetch(industryUrl).then(res => res.json()) : Promise.resolve(null)
+            ]).then(([stockData, industryData]) => {
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('resultArea').classList.remove('hidden');
+                document.getElementById('status').textContent = '✅ 加载完成（含行业对比）';
+
+                // 显示个股K线
+                renderChart(stockData, null);
+                document.getElementById('klineInfo').textContent = stockData.length + ' 根K线 (个股: ' + (name || code) + ')';
+
+                // 显示行业K线
+                const industryContainer = document.getElementById('industryChartContainer');
+                if (industryData && industryData.length > 0) {
+                    industryContainer.style.display = 'block';
+                    renderIndustryChart(industryData, industry);
+                    document.getElementById('industryKlineInfo').textContent = industryData.length + ' 根K线 (行业: ' + industry + ')';
+                } else {
+                    industryContainer.style.display = 'none';
+                    document.getElementById('industryKlineInfo').textContent = '无行业数据';
+                }
+
+                renderTable(stockData);
+                document.getElementById('tableCount').textContent = stockData.length + ' 条';
+            }).catch(err => {
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('status').textContent = '❌ 加载失败';
+                appendLog(`❌ 加载数据失败: ${err.message}`, 'error');
+            });
+        }
+
+        // 搜索和分页事件（不变）
         ladderSearchInput.addEventListener('input', function () {
             const keyword = this.value.trim().toLowerCase();
             if (!keyword) {
@@ -1939,17 +2021,11 @@
         });
 
         ladderPrevPage.addEventListener('click', function () {
-            if (ladderCurrentPage > 1) {
-                ladderCurrentPage--;
-                renderLadderTable();
-            }
+            if (ladderCurrentPage > 1) { ladderCurrentPage--; renderLadderTable(); }
         });
         ladderNextPage.addEventListener('click', function () {
             const totalPages = Math.ceil(ladderFilteredData.length / ladderPageSize) || 1;
-            if (ladderCurrentPage < totalPages) {
-                ladderCurrentPage++;
-                renderLadderTable();
-            }
+            if (ladderCurrentPage < totalPages) { ladderCurrentPage++; renderLadderTable(); }
         });
         ladderPageInput.addEventListener('change', function () {
             let page = parseInt(this.value);
@@ -1959,10 +2035,6 @@
             ladderCurrentPage = page;
             renderLadderTable();
         });
-
-
-
-
 
         // 加载数据（不控制显示隐藏）
         function fetchLadderData() {
@@ -2025,60 +2097,17 @@
             }
         });
 
-        // 搜索框输入不变
-        ladderSearchInput.addEventListener('input', function () {
-            const keyword = this.value.trim().toLowerCase();
-            if (!keyword) {
-                ladderFilteredData = ladderData.slice();
-            } else {
-                ladderFilteredData = ladderData.filter(item =>
-                    (item.thscode && item.thscode.toLowerCase().includes(keyword)) ||
-                    (item.name && item.name.toLowerCase().includes(keyword)) ||
-                    (item.concept && item.concept.toLowerCase().includes(keyword)) ||
-                    (item.industry && item.industry.toLowerCase().includes(keyword))
-                );
-            }
-            ladderCurrentPage = 1;
-            renderLadderTable();
-        });
-
-        btnClearLadderSearch.addEventListener('click', function () {
-            ladderSearchInput.value = '';
-            ladderFilteredData = ladderData.slice();
-            ladderCurrentPage = 1;
-            renderLadderTable();
-        });
-
-        // 分页控件事件（保持不变）
-        ladderPrevPage.addEventListener('click', function () {
-            if (ladderCurrentPage > 1) { ladderCurrentPage--; renderLadderTable(); }
-        });
-        ladderNextPage.addEventListener('click', function () {
-            const totalPages = Math.ceil(ladderFilteredData.length / ladderPageSize) || 1;
-            if (ladderCurrentPage < totalPages) { ladderCurrentPage++; renderLadderTable(); }
-        });
-        ladderPageInput.addEventListener('change', function () {
-            let page = parseInt(this.value);
-            const totalPages = Math.ceil(ladderFilteredData.length / ladderPageSize) || 1;
-            if (isNaN(page) || page < 1) page = 1;
-            if (page > totalPages) page = totalPages;
-            ladderCurrentPage = page;
-            renderLadderTable();
-        });
-
-
-
-
-
-
         // ============================================================
-        // 图表渲染
+        // 图表渲染（个股K线，保持不变）
         // ============================================================
         function renderChart(data, markers) {
             const container = document.getElementById('klineChart');
             if (!chart) {
                 chart = echarts.init(container);
-                window.addEventListener('resize', () => chart && chart.resize());
+                window.addEventListener('resize', () => {
+                    if (chart) chart.resize();
+                    if (industryChart) industryChart.resize();
+                });
             }
             data.sort((a, b) => new Date(a.trade_date) - new Date(b.trade_date));
             const dates = data.map(d => {
@@ -2179,12 +2208,25 @@
                     { left: '6%', right: '6%', top: '70%', height: '18%' }
                 ],
                 xAxis: [
-                    { type: 'category', data: dates, scale: true, axisLabel: { color: '#6a7a8e', interval: Math.floor(dates.length / 20) }, axisLine: { lineStyle: { color: '#1a2332' } }, gridIndex: 0 },
-                    { type: 'category', data: dates, scale: true, axisLabel: { show: false }, axisLine: { show: false }, gridIndex: 1 }
+                    {
+                        type: 'category', data: dates, scale: true,
+                        axisLabel: { color: '#6a7a8e', interval: Math.floor(dates.length / 20) },
+                        axisLine: { lineStyle: { color: '#1a2332' } }, gridIndex: 0
+                    },
+                    {
+                        type: 'category', data: dates, scale: true,
+                        axisLabel: { show: false }, axisLine: { show: false }, gridIndex: 1
+                    }
                 ],
                 yAxis: [
-                    { scale: true, splitLine: { lineStyle: { color: '#0d1421' } }, axisLabel: { color: '#6a7a8e' }, gridIndex: 0 },
-                    { scale: true, splitLine: { lineStyle: { color: '#0d1421' } }, axisLabel: { color: '#6a7a8e' }, gridIndex: 1, min: 0, max: maxVolume * 1.2 }
+                    {
+                        scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' }, gridIndex: 0
+                    },
+                    {
+                        scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' }, gridIndex: 1, min: 0, max: maxVolume * 1.2
+                    }
                 ],
                 series: [{
                     name: 'K线',
@@ -2192,13 +2234,25 @@
                     data: kValues,
                     xAxisIndex: 0,
                     yAxisIndex: 0,
-                    itemStyle: { color: '#ff1744', color0: '#00c853', borderColor: '#ff1744', borderColor0: '#00c853' },
+                    itemStyle: {
+                        color: '#ff1744',
+                        color0: '#00c853',
+                        borderColor: '#ff1744',
+                        borderColor0: '#00c853',
+                    },
                     markPoint: {
                         data: markPoints,
                         symbol: 'pin',
                         symbolSize: 30,
                         itemStyle: { color: '#f0b90b' },
-                        label: { show: true, formatter: function (params) { return params.data.label; }, color: '#fff', fontSize: 10, fontWeight: 'bold', position: 'top' }
+                        label: {
+                            show: true,
+                            formatter: function (params) { return params.data.label; },
+                            color: '#fff',
+                            fontSize: 10,
+                            fontWeight: 'bold',
+                            position: 'top'
+                        }
                     },
                     markLine: {
                         silent: true,
@@ -2221,7 +2275,105 @@
                 }]
             };
             chart.setOption(option);
-            setTimeout(() => chart && chart.resize(), 200);
+            chart.resize();
+        }
+
+        // ★ 新增：行业K线渲染（独立图表）
+        function renderIndustryChart(data, industryName) {
+            const container = document.getElementById('industryChart');
+            if (!industryChart) {
+                industryChart = echarts.init(container);
+                window.addEventListener('resize', () => {
+                    if (chart) chart.resize();
+                    if (industryChart) industryChart.resize();
+                });
+            }
+            data.sort((a, b) => new Date(a.trade_date) - new Date(b.trade_date));
+            const dates = data.map(d => {
+                let dateStr = d.trade_date;
+                if (dateStr && dateStr.length > 10) dateStr = dateStr.slice(0, 10);
+                return dateStr.trim();
+            });
+            const kValues = data.map(d => [d.open_price, d.close_price, d.low_price, d.high_price]);
+            const volumes = data.map(d => d.volume);
+            const maxVolume = Math.max(...volumes, 1);
+
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' },
+                    formatter: function (params) {
+                        const idx = params[0].dataIndex;
+                        const d = data[idx];
+                        if (!d) return '';
+                        let html = `<div style="font-weight:600;">${d.trade_date}</div>
+                    开盘: ${d.open_price}<br>最高: ${d.high_price}<br>最低: ${d.low_price}<br>收盘: ${d.close_price}<br>
+                    成交量: ${d.volume}<br>成分股数: ${d.stock_count || '--'}`;
+                        return html;
+                    }
+                },
+                dataZoom: [
+                    { type: 'inside', start: 0, end: 100, minSpan: 5, maxSpan: 100 },
+                    {
+                        type: 'slider', start: 0, end: 100, minSpan: 5, maxSpan: 100, height: 20, bottom: 5,
+                        borderColor: '#1a2332', fillerColor: 'rgba(240,185,11,0.15)',
+                        handleStyle: { color: '#f0b90b' }, textStyle: { color: '#6a7a8e' }, xAxisIndex: [0, 1]
+                    }
+                ],
+                grid: [
+                    { left: '6%', right: '6%', top: '8%', height: '58%' },
+                    { left: '6%', right: '6%', top: '70%', height: '18%' }
+                ],
+                xAxis: [
+                    {
+                        type: 'category', data: dates, scale: true,
+                        axisLabel: { color: '#6a7a8e', interval: Math.floor(dates.length / 20) },
+                        axisLine: { lineStyle: { color: '#1a2332' } }, gridIndex: 0
+                    },
+                    {
+                        type: 'category', data: dates, scale: true,
+                        axisLabel: { show: false }, axisLine: { show: false }, gridIndex: 1
+                    }
+                ],
+                yAxis: [
+                    {
+                        scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' }, gridIndex: 0
+                    },
+                    {
+                        scale: true, splitLine: { lineStyle: { color: '#0d1421' } },
+                        axisLabel: { color: '#6a7a8e' }, gridIndex: 1, min: 0, max: maxVolume * 1.2
+                    }
+                ],
+                series: [{
+                    name: '行业K线',
+                    type: 'candlestick',
+                    data: kValues,
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
+                    itemStyle: {
+                        color: '#ff1744',
+                        color0: '#00c853',
+                        borderColor: '#ff1744',
+                        borderColor0: '#00c853',
+                    }
+                }, {
+                    name: '行业成交量',
+                    type: 'bar',
+                    data: volumes,
+                    xAxisIndex: 1,
+                    yAxisIndex: 1,
+                    barWidth: '60%',
+                    itemStyle: {
+                        color: function (params) {
+                            const idx = params.dataIndex;
+                            return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
+                        }
+                    }
+                }]
+            };
+            industryChart.setOption(option);
+            industryChart.resize();
         }
 
         // ============================================================
@@ -2238,14 +2390,14 @@
                 const pct = d.pct_chg || 0;
                 const cls = pct > 0 ? 'up' : (pct < 0 ? 'down' : '');
                 return `<tr>
-                    <td>${d.trade_date}</td>
-                    <td>${fmtPrice(d.open_price)}</td>
-                    <td>${fmtPrice(d.high_price)}</td>
-                    <td>${fmtPrice(d.low_price)}</td>
-                    <td>${fmtPrice(d.close_price)}</td>
-                    <td class="vol">${d.volume}</td>
-                    <td class="${cls}">${pct > 0 ? '+' : ''}${pct.toFixed(2)}%</td>
-                </tr>`;
+            <td>${d.trade_date}</td>
+            <td>${fmtPrice(d.open_price)}</td>
+            <td>${fmtPrice(d.high_price)}</td>
+            <td>${fmtPrice(d.low_price)}</td>
+            <td>${fmtPrice(d.close_price)}</td>
+            <td class="vol">${d.volume}</td>
+            <td class="${cls}">${pct > 0 ? '+' : ''}${pct.toFixed(2)}%</td>
+        </tr>`;
             }).join('');
         }
 
