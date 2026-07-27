@@ -582,28 +582,23 @@ class DuckDBManager:
 
 
     # ============ 板块信息更新（新增） ============
-    def update_stock_concept_industry(self, mapping: dict):
-        """
-        批量更新股票的概念和行业信息
-        mapping: {thscode: (concept_str, industry_str)}
-        """
+    def update_stock_concept_industry(self, mapping):
         if not mapping:
-            print("⚠️ 映射为空")
             return 0
-        
+
         updated = 0
         for thscode, (concept, industry) in mapping.items():
-            result = self.db.execute("""
-                UPDATE stock_list 
-                SET concept = ?, industry = ? 
-                WHERE thscode = ?
-            """, [concept, industry, thscode])
-            if result.df() is not None:  # 只要执行成功就算更新
+            # 检查是否存在
+            exists = self.db.execute("SELECT COUNT(*) FROM stock_list WHERE thscode = ?", [thscode]).fetchone()[0]
+            if exists:
+                self.db.execute("""
+                    UPDATE stock_list SET concept = ?, industry = ? WHERE thscode = ?
+                """, [concept, industry, thscode])
                 updated += 1
-        
         self.db.commit()
         print(f"✅ 已更新 {updated} 只股票的板块信息")
         return updated
+
 
     # ============ 查询数据 ============
     def query_data(self, thscode=None, start_date=None, end_date=None, limit=10):
@@ -707,7 +702,7 @@ class DuckDBManager:
 
 
 
-    def update_industry_daily(self, start_date=None, end_date=None):
+    def update_industry_daily(self, start_date=None, end_date=None, force_full=False):
         """
         计算并更新行业K线汇总数据（等权平均）
         取 stock_list.industry 字段中第一个逗号前的部分作为主行业
@@ -731,15 +726,22 @@ class DuckDBManager:
 
         # 日期范围
         if start_date is None or end_date is None:
-            # 默认最近250个交易日
             latest = self.get_latest_date()
             if latest is None:
                 print("⚠️ 无日线数据，先更新K线")
                 return 0
             end_date = latest
-            start_date = (datetime.strptime(str(latest), "%Y-%m-%d") - timedelta(days=200)).strftime("%Y-%m-%d")
+            start_date = (datetime.strptime(str(latest), "%Y-%m-%d") - timedelta(days=250)).strftime("%Y-%m-%d")
 
-        # 批量查询日线数据（一次性取出，减少查询次数）
+        # 若强制全量更新，则删除所有旧数据
+        if force_full:
+            self.db.execute("DELETE FROM industry_daily")
+            print("🗑️ 已清空 industry_daily 表")
+        else:
+            # 仅删除指定日期范围的数据
+            self.db.execute("DELETE FROM industry_daily WHERE trade_date BETWEEN ? AND ?", [start_date, end_date])
+
+        # 批量查询日线数据
         df_kline = self.db.execute("""
             SELECT thscode, trade_date, open_price, high_price, low_price, close_price, volume
             FROM daily_quotes
@@ -763,15 +765,11 @@ class DuckDBManager:
             'low_price': 'mean',
             'close_price': 'mean',
             'volume': 'sum',
-            'thscode': 'count'  # 股票数量
+            'thscode': 'count'
         }).reset_index().rename(columns={'thscode': 'stock_count'})
 
-        # 重命名列以匹配表结构
         df_grouped.columns = ['industry', 'trade_date', 'open_price', 'high_price', 'low_price', 
                             'close_price', 'volume', 'stock_count']
-
-        # 删除旧数据（重新插入）
-        self.db.execute("DELETE FROM industry_daily WHERE trade_date BETWEEN ? AND ?", [start_date, end_date])
 
         # 插入新数据
         if not df_grouped.empty:
@@ -782,7 +780,8 @@ class DuckDBManager:
             print(f"✅ 更新行业K线：{len(df_grouped)} 条记录")
         
         return len(df_grouped)
-
+    
+    
 
 
     def get_industry_kline(self, industry, start_date=None, end_date=None, limit=500):

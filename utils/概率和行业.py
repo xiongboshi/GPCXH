@@ -5,6 +5,8 @@ import requests
 import pandas as pd
 from typing import List, Dict, Optional, Union
 import time
+import os
+import pickle
 
 
 class StockSectorMatcher:
@@ -70,38 +72,83 @@ class StockSectorMatcher:
             return {code: mapping.get(code, []) for code in stock_list}
 
 
-# ========== 全市场映射构建（新增） ==========
-def build_full_market_mapping(api_key: str, include_concept: bool = True, include_industry: bool = True) -> Dict[str, Dict[str, str]]:
+# ========== 全市场映射构建（带缓存和重试） ==========
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
+os.makedirs(CACHE_DIR, exist_ok=True)
+SECTOR_CACHE_PATH = os.path.join(CACHE_DIR, 'sector_mapping.pkl')
+
+def build_full_market_mapping(api_key: str, include_concept: bool = True, include_industry: bool = True, force_refresh: bool = False) -> Dict[str, Dict[str, str]]:
     """
-    构建全市场股票的概念和行业板块映射
+    构建全市场股票的概念和行业板块映射（带缓存）
+    若缓存存在且未强制刷新，直接读取缓存。
+    若需刷新，则请求API并保存缓存。
     返回: {thscode: {'concept': '概念1,概念2', 'industry': '行业1,行业2'}}
 
     Args:
         api_key: 同花顺 API Key
         include_concept: 是否包含概念板块
         include_industry: 是否包含行业板块
+        force_refresh: 是否强制刷新缓存
     """
+    # 检查缓存
+    if not force_refresh and os.path.exists(SECTOR_CACHE_PATH):
+        try:
+            with open(SECTOR_CACHE_PATH, 'rb') as f:
+                cached = pickle.load(f)
+            print(f"✅ 从缓存加载板块映射，共 {len(cached)} 只股票")
+            return cached
+        except Exception as e:
+            print(f"⚠️ 缓存读取失败: {e}，将重新请求")
+
     session = requests.Session()
     session.headers.update({"X-api-key": api_key})
 
-    def fetch_sector_list(tag):
+    def fetch_sector_list(tag, retries=5):
         url = f"https://fuyao.aicubes.cn/api/a-share-index/catalog/ths-index-list?tag={tag}"
-        resp = session.get(url)
-        resp.raise_for_status()
-        data = resp.json()
-        if data.get("code") != 0:
-            raise ValueError(f"获取板块列表失败: {data.get('message')}")
-        return data.get("data", {}).get("item", [])
+        for attempt in range(retries):
+            try:
+                resp = session.get(url)
+                if resp.status_code == 429:
+                    wait = min((attempt + 1) * 3, 15)  # 3s, 6s, 9s, 12s, 15s
+                    print(f"⏳ 触发限流 (429)，等待 {wait}s 后重试...")
+                    time.sleep(wait)
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                if data.get("code") != 0:
+                    raise ValueError(f"API错误: {data.get('message')}")
+                return data.get("data", {}).get("item", [])
+            except requests.exceptions.RequestException as e:
+                print(f"⚠️ 请求失败 (尝试 {attempt+1}/{retries}): {e}")
+                if attempt < retries - 1:
+                    time.sleep(2)
+                else:
+                    raise
+        raise Exception(f"获取板块列表失败，已重试 {retries} 次")
 
-    def fetch_constituents(sector_code):
+    def fetch_constituents(sector_code, retries=5):
         url = f"https://fuyao.aicubes.cn/api/a-share-index/constituents/ths-stock-list?thscode={sector_code}"
-        resp = session.get(url)
-        resp.raise_for_status()
-        data = resp.json()
-        if data.get("code") != 0:
-            return []
-        items = data.get("data", {}).get("item", [])
-        return [item.get("thscode") for item in items]
+        for attempt in range(retries):
+            try:
+                resp = session.get(url)
+                if resp.status_code == 429:
+                    wait = min((attempt + 1) * 3, 15)
+                    print(f"⏳ 触发限流 (429)，等待 {wait}s 后重试...")
+                    time.sleep(wait)
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                if data.get("code") != 0:
+                    return []
+                items = data.get("data", {}).get("item", [])
+                return [item.get("thscode") for item in items]
+            except requests.exceptions.RequestException as e:
+                print(f"⚠️ 请求成分股失败 (尝试 {attempt+1}/{retries}): {e}")
+                if attempt < retries - 1:
+                    time.sleep(2)
+                else:
+                    raise
+        return []
 
     mapping = {}
 
@@ -116,7 +163,7 @@ def build_full_market_mapping(api_key: str, include_concept: bool = True, includ
             constituents = fetch_constituents(code)
             for stock in constituents:
                 concept_dict.setdefault(stock, []).append(name)
-            time.sleep(0.05)
+            time.sleep(0.3)  # 限流保护
             if (i + 1) % 50 == 0:
                 print(f"   已处理 {i+1}/{len(concept_sectors)}")
         mapping = concept_dict
@@ -133,7 +180,7 @@ def build_full_market_mapping(api_key: str, include_concept: bool = True, includ
             constituents = fetch_constituents(code)
             for stock in constituents:
                 industry_dict.setdefault(stock, []).append(name)
-            time.sleep(0.05)
+            time.sleep(0.3)
             if (i + 1) % 50 == 0:
                 print(f"   已处理 {i+1}/{len(industry_sectors)}")
         print(f"✅ 行业板块映射完成，涉及 {len(industry_dict)} 只股票")
@@ -146,14 +193,22 @@ def build_full_market_mapping(api_key: str, include_concept: bool = True, includ
                 'concept': ', '.join(mapping.get(stock, [])),
                 'industry': ', '.join(industry_dict.get(stock, []))
             }
-        return final_mapping
     else:
         # 只有概念
-        return {code: {'concept': ', '.join(vals), 'industry': ''} for code, vals in mapping.items()}
+        final_mapping = {code: {'concept': ', '.join(vals), 'industry': ''} for code, vals in mapping.items()}
+
+    # 保存缓存
+    try:
+        with open(SECTOR_CACHE_PATH, 'wb') as f:
+            pickle.dump(final_mapping, f)
+        print(f"✅ 板块映射已缓存至 {SECTOR_CACHE_PATH}")
+    except Exception as e:
+        print(f"⚠️ 缓存保存失败: {e}")
+
+    return final_mapping
 
 
 # ========== 便捷函数（连板天梯专用） ==========
-# ========== 新增：从数据库查询板块信息（快速） ==========
 def enrich_ladder_data_from_db(df: pd.DataFrame, db_manager) -> pd.DataFrame:
     """
     为连板天梯 DataFrame 添加概念板块和行业板块两列（从本地数据库 stock_list 表查询）
@@ -192,3 +247,10 @@ def enrich_ladder_data_from_db(df: pd.DataFrame, db_manager) -> pd.DataFrame:
     result['concept'] = result['thscode'].map(concept_map).fillna('')
     result['industry'] = result['thscode'].map(industry_map).fillna('')
     return result
+
+
+
+
+# 在 utils/概率和行业.py 底部添加
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
+SECTOR_CACHE_PATH = os.path.join(CACHE_DIR, 'sector_mapping.pkl')

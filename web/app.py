@@ -3,6 +3,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import amount
+import pickle
 
 from flask import Flask, render_template, jsonify, request
 import duckdb
@@ -11,13 +12,12 @@ import subprocess
 from datetime import datetime, timedelta
 
 from utils.连扳天梯 import get_limit_up_ladder
-from utils.概率和行业 import enrich_ladder_data_from_db
+from utils.概率和行业 import enrich_ladder_data_from_db, build_full_market_mapping,CACHE_DIR, SECTOR_CACHE_PATH
 from database.db_manager import DuckDBManager
 
 from database.shape_storage import drop_combined_table,drop_enter_table
 from database.shape_storage import get_storage  # 或直接 ShapeStorage
 
-from flask import render_template
 
 
 app = Flask(__name__)
@@ -56,6 +56,10 @@ def entry():
 def ladder():
     return render_template('ladder.html')
 
+@app.route('/update_data')
+def update_data():
+    return render_template('update_data.html')
+
 
 
 @app.route('/api/search_stocks')
@@ -74,6 +78,81 @@ def search_stocks():
     db.close()
     return jsonify(df.to_dict(orient='records'))
 
+
+
+#========================================
+#数据更新
+#=======================================
+@app.route('/api/update_sector_cache', methods=['POST'])
+def update_sector_cache():
+    """
+    强制更新板块映射缓存（从同花顺API重新拉取）
+    """
+    try:
+        API_KEY = "sk-fuyao-sNNYGRAebGYCgzOovqNydUfa4Zajhslk"  # 建议从环境变量读取
+        mapping = build_full_market_mapping(
+            API_KEY,
+            include_concept=True,
+            include_industry=True,
+            force_refresh=True
+        )
+        if mapping:
+            return jsonify({
+                'success': True,
+                'message': f'板块映射更新成功，共 {len(mapping)} 只股票',
+                'count': len(mapping)
+            })
+        else:
+            return jsonify({'success': False, 'message': '更新失败，返回空映射'})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/apply_sector_to_db', methods=['POST'])
+def apply_sector_to_db():
+    try:
+        # 检查缓存文件是否存在
+        if not os.path.exists(SECTOR_CACHE_PATH):
+            return jsonify({'success': False, 'error': '缓存文件不存在，请先生成映射'}), 400
+
+        # 加载缓存
+        with open(SECTOR_CACHE_PATH, 'rb') as f:
+            mapping = pickle.load(f)
+
+        # 转换为 (concept, industry) 格式
+        update_data = {}
+        for thscode, info in mapping.items():
+            update_data[thscode] = (info.get('concept', ''), info.get('industry', ''))
+
+        # 更新数据库（stock_list）
+        manager = DuckDBManager("database/market.duckdb")
+        updated_stocks = manager.update_stock_concept_industry(update_data)
+
+        # 重新计算行业K线（基于最新 industry 字段）
+        industry_count = manager.update_industry_daily()  # 使用默认日期范围（最近200天）
+
+        manager.close()
+
+        return jsonify({
+            'success': True,
+            'updated_stocks': updated_stocks,
+            'updated_industry': industry_count,
+            'message': f'成功更新 {updated_stocks} 只股票的板块信息，并重新计算 {industry_count} 条行业K线'
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+
+
+
+
+
+#===================================
+#返回K线数据
+#===================================
 @app.route('/api/kline')
 def get_kline():
     code = request.args.get('code')
@@ -92,9 +171,19 @@ def get_kline():
     db.close()
     if df.empty:
         return jsonify({'error': '无数据'}), 404
+
+    # 计算均线
+    df = calc_moving_averages(df)
+
     records = df.to_dict(orient='records')
     for r in records:
         r['trade_date'] = str(r['trade_date'])
+        # 均线值保留两位小数
+        for key in ['ma5', 'ma10', 'ma20', 'ma60']:
+            if key in r and pd.notna(r[key]):
+                r[key] = round(r[key], 2)
+            else:
+                r[key] = None
     return jsonify(records)
 
 
@@ -169,6 +258,11 @@ def get_kline_with_marker():
     if df.empty:
         db.close()
         return jsonify({'error': '无数据'}), 404
+
+    # 计算均线
+    df = calc_moving_averages(df)
+
+    # 获取涨停标记
     marker_sql = """
         SELECT trade_date, close_price, pct_chg
         FROM daily_quotes
@@ -180,9 +274,16 @@ def get_kline_with_marker():
     """
     markers_df = db.execute(marker_sql, [code]).df()
     db.close()
+
     records = df.to_dict(orient='records')
     for r in records:
         r['trade_date'] = str(r['trade_date'])
+        for key in ['ma5', 'ma10', 'ma20', 'ma60']:
+            if key in r and pd.notna(r[key]):
+                r[key] = round(r[key], 2)
+            else:
+                r[key] = None
+
     markers = []
     if not markers_df.empty:
         for _, row in markers_df.iterrows():
@@ -192,6 +293,10 @@ def get_kline_with_marker():
                 'pct_chg': float(row['pct_chg'])
             })
     return jsonify({'data': records, 'markers': markers})
+
+
+
+
 
 @app.route('/api/run_strategy', methods=['POST'])
 def run_strategy():
@@ -282,6 +387,9 @@ def get_tactics():
         db.close()
         return jsonify([])
 
+
+
+
 @app.route('/api/kline_with_tactics')
 def get_kline_with_tactics():
     code = request.args.get('code')
@@ -304,6 +412,9 @@ def get_kline_with_tactics():
         if df.empty:
             db.close()
             return jsonify({'error': '无数据'}), 404
+
+        # 计算均线
+        df = calc_moving_averages(df)
 
         markers = []
         if date_point:
@@ -335,12 +446,20 @@ def get_kline_with_tactics():
         records = df.to_dict(orient='records')
         for r in records:
             r['trade_date'] = str(r['trade_date'])
+            for key in ['ma5', 'ma10', 'ma20', 'ma60']:
+                if key in r and pd.notna(r[key]):
+                    r[key] = round(r[key], 2)
+                else:
+                    r[key] = None
 
         return jsonify({'data': records, 'markers': markers})
     except Exception as e:
         db.close()
         return jsonify({'error': str(e)}), 500
     
+
+
+
 
 #===================================
 #连扳天梯
@@ -404,9 +523,18 @@ def get_industry_kline():
     manager.close()
     if df.empty:
         return jsonify({'error': '无行业数据'}), 404
+
+    # 计算均线
+    df = calc_moving_averages(df, periods=[5, 10, 20, 60])
+
     records = df.to_dict(orient='records')
     for r in records:
         r['trade_date'] = str(r['trade_date'])
+        for key in ['ma5', 'ma10', 'ma20', 'ma60']:
+            if key in r and pd.notna(r[key]):
+                r[key] = round(r[key], 2)
+            else:
+                r[key] = None
     return jsonify(records)
 
 
@@ -429,6 +557,25 @@ def clear_tactics():
     except Exception as e:
         db.close()
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+
+
+#==================================
+#添加均线计算函数
+#==================================
+def calc_moving_averages(df, periods=[5, 10, 20, 60]):
+    """
+    计算指定周期的移动平均线
+    df: 包含 'close_price' 和 'trade_date' 的 DataFrame，且已按日期升序排列
+    periods: 均线周期列表
+    返回: 添加了 ma{period} 列的 DataFrame
+    """
+    df = df.copy()
+    for p in periods:
+        df[f'ma{p}'] = df['close_price'].rolling(window=p).mean()
+    return df
+
+
     
 
 

@@ -18,6 +18,17 @@ manager = DuckDBManager("database/market.duckdb")
 
 
 
+# # 6. 构建全市场板块映射（概念+行业）
+# print("\n🔍 构建全市场板块映射（概念+行业）...")
+# full_mapping = build_full_market_mapping(API_KEY, include_concept=True, include_industry=True)
+
+# # 转换为 {thscode: (concept, industry)}
+# mapping = {}
+# for thscode, data in full_mapping.items():
+#     mapping[thscode] = (data['concept'], data['industry'])
+
+
+
 # 1. 获取 DataFrame 格式的连板天梯（最近30天）
 df_ladder = get_limit_up_ladder(API_KEY, as_dataframe=True)
 
@@ -65,8 +76,8 @@ updated = manager.update_stock_concept_industry(filtered_mapping)
 print(f"✅ 已更新 {updated} 只股票的板块信息")
 
 
-#8.更新行业历史K线数据
-manager.update_industry_daily()
+# #8.更新行业历史K线数据
+# manager.update_industry_daily()
 
 # 9. 打印统计
 print("\n" + "=" * 60)

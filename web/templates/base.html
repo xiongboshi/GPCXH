@@ -598,6 +598,7 @@
             <a href="/combined" class="btn btn-secondary btn-sm">🔀 多线策略</a>
             <a href="/entry" class="btn btn-secondary btn-sm">🚀 入场判断</a>
             <a href="/ladder" class="btn btn-secondary btn-sm">📊 连板天梯</a>
+            <a href="/update_data" class="btn btn-secondary btn-sm">🛠️ 数据维护</a>
         </div>
 
         <!-- 各功能模块占位 -->
@@ -910,6 +911,29 @@
                 });
             }
 
+            // ===== 均线配置 =====
+            const maConfigs = [
+                { period: 5, color: '#C0C0C0', name: 'MA5' },   // 灰色
+                { period: 10, color: '#CC66FF', name: 'MA10' },  // 紫色
+                { period: 20, color: '#F0B90B', name: 'MA20' },  // 黄色
+                { period: 60, color: '#0066FF', name: 'MA60' }   // 蓝色
+            ];
+            const maSeries = maConfigs.map(cfg => {
+                const maData = data.map(d => d[`ma${cfg.period}`] !== undefined ? d[`ma${cfg.period}`] : null);
+                return {
+                    name: cfg.name,
+                    type: 'line',
+                    data: maData,
+                    smooth: true,
+                    lineStyle: { color: cfg.color, width: 1.5 },
+                    symbol: 'none',
+                    connectNulls: true,
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
+                    z: 2
+                };
+            });
+
             const option = {
                 tooltip: {
                     trigger: 'axis',
@@ -919,8 +943,18 @@
                         const d = data[idx];
                         if (!d) return '';
                         let html = `<div style="font-weight:600;">${d.trade_date}</div>
-                        开盘: ${d.open_price}<br>最高: ${d.high_price}<br>最低: ${d.low_price}<br>收盘: ${d.close_price}<br>
-                        成交量: ${d.volume}<br>涨跌幅: ${d.pct_chg ? d.pct_chg.toFixed(2) : '0.00'}%`;
+                    开盘: ${d.open_price}<br>最高: ${d.high_price}<br>最低: ${d.low_price}<br>收盘: ${d.close_price}<br>
+                    成交量: ${d.volume}<br>涨跌幅: ${d.pct_chg ? d.pct_chg.toFixed(2) : '0.00'}%`;
+                        // 显示均线值（仅显示有数据的均线）
+                        const maLines = params.filter(p => p.seriesName.startsWith('MA'));
+                        if (maLines.length) {
+                            html += '<br><span style="color:#f0b90b;">均线:</span>';
+                            maLines.forEach(p => {
+                                if (p.value !== null) {
+                                    html += ` ${p.seriesName} ${p.value.toFixed(2)}`;
+                                }
+                            });
+                        }
                         if (markers) {
                             const marker = markers.find(m => m.trade_date === d.trade_date && m.type !== 'level');
                             if (marker) {
@@ -963,55 +997,61 @@
                         axisLabel: { color: '#6a7a8e' }, gridIndex: 1, min: 0, max: maxVolume * 1.2
                     }
                 ],
-                series: [{
-                    name: 'K线',
-                    type: 'candlestick',
-                    data: kValues,
-                    xAxisIndex: 0,
-                    yAxisIndex: 0,
-                    itemStyle: {
-                        color: '#ff1744',
-                        color0: '#00c853',
-                        borderColor: '#ff1744',
-                        borderColor0: '#00c853',
-                    },
-                    markPoint: {
-                        data: markPoints,
-                        symbol: 'pin',
-                        symbolSize: 30,
-                        itemStyle: { color: '#f0b90b' },
-                        label: {
-                            show: true,
-                            formatter: function (params) { return params.data.label; },
-                            color: '#fff',
-                            fontSize: 10,
-                            fontWeight: 'bold',
-                            position: 'top'
+                series: [
+                    {
+                        name: 'K线',
+                        type: 'candlestick',
+                        data: kValues,
+                        xAxisIndex: 0,
+                        yAxisIndex: 0,
+                        itemStyle: {
+                            color: '#ff1744',
+                            color0: '#00c853',
+                            borderColor: '#ff1744',
+                            borderColor0: '#00c853',
+                        },
+                        markPoint: {
+                            data: markPoints,
+                            symbol: 'pin',
+                            symbolSize: 30,
+                            itemStyle: { color: '#f0b90b' },
+                            label: {
+                                show: true,
+                                formatter: function (params) { return params.data.label; },
+                                color: '#fff',
+                                fontSize: 10,
+                                fontWeight: 'bold',
+                                position: 'top'
+                            }
+                        },
+                        markLine: {
+                            silent: true,
+                            data: markLineData,
+                            label: { fontSize: 10, color: '#ffffff' }
                         }
                     },
-                    markLine: {
-                        silent: true,
-                        data: markLineData,
-                        label: { fontSize: 10, color: '#ffffff' }
-                    }
-                }, {
-                    name: '成交量',
-                    type: 'bar',
-                    data: volumes,
-                    xAxisIndex: 1,
-                    yAxisIndex: 1,
-                    barWidth: '60%',
-                    itemStyle: {
-                        color: function (params) {
-                            const idx = params.dataIndex;
-                            return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
+                    {
+                        name: '成交量',
+                        type: 'bar',
+                        data: volumes,
+                        xAxisIndex: 1,
+                        yAxisIndex: 1,
+                        barWidth: '60%',
+                        itemStyle: {
+                            color: function (params) {
+                                const idx = params.dataIndex;
+                                return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
+                            }
                         }
-                    }
-                }]
+                    },
+                    // 均线系列
+                    ...maSeries
+                ]
             };
             chart.setOption(option);
             chart.resize();
         }
+
 
         // ============================================================
         // 行业K线渲染（独立图表）
@@ -1035,6 +1075,29 @@
             const volumes = data.map(d => d.volume);
             const maxVolume = Math.max(...volumes, 1);
 
+            // 同花顺风格均线颜色
+            const maConfigs = [
+                { period: 5, color: '#C0C0C0', name: 'MA5' },   // 灰色
+                { period: 10, color: '#CC66FF', name: 'MA10' },  // 紫色
+                { period: 20, color: '#F0B90B', name: 'MA20' },  // 黄色
+                { period: 60, color: '#0066FF', name: 'MA60' }   // 蓝色
+            ];
+            const maSeries = maConfigs.map(cfg => {
+                const maData = data.map(d => d[`ma${cfg.period}`] !== undefined ? d[`ma${cfg.period}`] : null);
+                return {
+                    name: cfg.name,
+                    type: 'line',
+                    data: maData,
+                    smooth: true,
+                    lineStyle: { color: cfg.color, width: 1.5 },
+                    symbol: 'none',
+                    connectNulls: true,
+                    xAxisIndex: 0,
+                    yAxisIndex: 0,
+                    z: 2
+                };
+            });
+
             const option = {
                 tooltip: {
                     trigger: 'axis',
@@ -1044,8 +1107,18 @@
                         const d = data[idx];
                         if (!d) return '';
                         let html = `<div style="font-weight:600;">${d.trade_date}</div>
-                        开盘: ${d.open_price}<br>最高: ${d.high_price}<br>最低: ${d.low_price}<br>收盘: ${d.close_price}<br>
-                        成交量: ${d.volume}<br>成分股数: ${d.stock_count || '--'}`;
+                    开盘: ${d.open_price}<br>最高: ${d.high_price}<br>最低: ${d.low_price}<br>收盘: ${d.close_price}<br>
+                    成交量: ${d.volume}<br>成分股数: ${d.stock_count || '--'}`;
+                        // 显示均线
+                        const maLines = params.filter(p => p.seriesName.startsWith('MA'));
+                        if (maLines.length) {
+                            html += '<br><span style="color:#F0B90B;">均线:</span>';
+                            maLines.forEach(p => {
+                                if (p.value !== null) {
+                                    html += ` ${p.seriesName} ${p.value.toFixed(2)}`;
+                                }
+                            });
+                        }
                         return html;
                     }
                 },
@@ -1082,36 +1155,42 @@
                         axisLabel: { color: '#6a7a8e' }, gridIndex: 1, min: 0, max: maxVolume * 1.2
                     }
                 ],
-                series: [{
-                    name: '行业K线',
-                    type: 'candlestick',
-                    data: kValues,
-                    xAxisIndex: 0,
-                    yAxisIndex: 0,
-                    itemStyle: {
-                        color: '#ff1744',
-                        color0: '#00c853',
-                        borderColor: '#ff1744',
-                        borderColor0: '#00c853',
-                    }
-                }, {
-                    name: '行业成交量',
-                    type: 'bar',
-                    data: volumes,
-                    xAxisIndex: 1,
-                    yAxisIndex: 1,
-                    barWidth: '60%',
-                    itemStyle: {
-                        color: function (params) {
-                            const idx = params.dataIndex;
-                            return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
+                series: [
+                    {
+                        name: '行业K线',
+                        type: 'candlestick',
+                        data: kValues,
+                        xAxisIndex: 0,
+                        yAxisIndex: 0,
+                        itemStyle: {
+                            color: '#ff1744',
+                            color0: '#00c853',
+                            borderColor: '#ff1744',
+                            borderColor0: '#00c853',
                         }
-                    }
-                }]
+                    },
+                    {
+                        name: '行业成交量',
+                        type: 'bar',
+                        data: volumes,
+                        xAxisIndex: 1,
+                        yAxisIndex: 1,
+                        barWidth: '60%',
+                        itemStyle: {
+                            color: function (params) {
+                                const idx = params.dataIndex;
+                                return data[idx].close_price >= data[idx].open_price ? '#ff174466' : '#00c85366';
+                            }
+                        }
+                    },
+                    ...maSeries   // 均线系列
+                ]
             };
             industryChart.setOption(option);
             industryChart.resize();
         }
+
+
 
         // ============================================================
         // 数据表格渲染

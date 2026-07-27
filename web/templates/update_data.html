@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="controls" style="flex-direction: column; align-items: flex-start; gap: 20px;">
+    <h3 style="color: #f0b90b; margin-bottom: 10px;">📦 数据维护工具</h3>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap; width: 100%;">
+        <!-- 板块映射更新 -->
+        <div
+            style="background: #0d1421; padding: 20px; border-radius: 12px; border: 1px solid #1a2332; flex: 1; min-width: 300px;">
+            <h4 style="color: #f0b90b; margin-bottom: 8px;">📊 板块映射更新</h4>
+            <p style="color: #6a7a8e; font-size: 13px; margin-bottom: 12px;">从同花顺API重新拉取所有概念和行业板块，生成最新缓存（耗时约5-10分钟）</p>
+            <button class="btn btn-secondary" id="btnUpdateCache">🔄 更新缓存</button>
+            <span id="cacheStatus" style="margin-left: 15px; color: #6a7a8e; font-size: 13px;"></span>
+        </div>
+
+        <!-- 应用板块到数据库 -->
+        <div
+            style="background: #0d1421; padding: 20px; border-radius: 12px; border: 1px solid #1a2332; flex: 1; min-width: 300px;">
+            <h4 style="color: #f0b90b; margin-bottom: 8px;">💾 应用板块到数据库</h4>
+            <p style="color: #6a7a8e; font-size: 13px; margin-bottom: 12px;">将本地缓存中的板块信息更新到 stock_list 表的 concept 和
+                industry 字段</p>
+            <button class="btn btn-secondary" id="btnApplySector">📥 应用到数据库</button>
+            <span id="applyStatus" style="margin-left: 15px; color: #6a7a8e; font-size: 13px;"></span>
+        </div>
+        
+    </div>
+
+    <!-- 日志区域 -->
+    <div
+        style="width: 100%; background: #0d1421; padding: 15px; border-radius: 12px; border: 1px solid #1a2332; margin-top: 10px;">
+        <h4 style="color: #f0b90b; margin-bottom: 8px;">📋 执行日志</h4>
+        <div id="updateLog"
+            style="background: #0a0e17; border-radius: 6px; padding: 10px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; color: #6a7a8e; white-space: pre-wrap;">
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 日志工具
+    const updateLog = document.getElementById('updateLog');
+    function appendUpdateLog(message, type = 'info') {
+        const prefix = type === 'success' ? '✅ ' : type === 'error' ? '❌ ' : 'ℹ️ ';
+        const color = type === 'success' ? '#00c853' : type === 'error' ? '#ff1744' : '#f0b90b';
+        const line = document.createElement('div');
+        line.style.color = color;
+        line.textContent = prefix + message;
+        updateLog.appendChild(line);
+        updateLog.scrollTop = updateLog.scrollHeight;
+    }
+
+    // 更新缓存
+    document.getElementById('btnUpdateCache').addEventListener('click', function () {
+        const btn = this;
+        const status = document.getElementById('cacheStatus');
+        btn.disabled = true;
+        btn.textContent = '⏳ 更新中...';
+        status.textContent = '正在请求API，请耐心等待...';
+        status.style.color = '#f0b90b';
+        appendUpdateLog('开始更新板块映射缓存...', 'info');
+
+        fetch('/api/update_sector_cache', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    status.textContent = `✅ 成功 (${data.count} 只)`;
+                    status.style.color = '#00c853';
+                    appendUpdateLog(`板块映射更新成功，共 ${data.count} 只股票`, 'success');
+                } else {
+                    status.textContent = '❌ 失败';
+                    status.style.color = '#ff1744';
+                    appendUpdateLog(`更新失败: ${data.message}`, 'error');
+                }
+            })
+            .catch(err => {
+                status.textContent = '❌ 请求异常';
+                status.style.color = '#ff1744';
+                appendUpdateLog(`请求异常: ${err.message}`, 'error');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = '🔄 更新缓存';
+            });
+    });
+
+    // 应用到数据库
+    document.getElementById('btnApplySector').addEventListener('click', function() {
+        const btn = this;
+        const status = document.getElementById('applyStatus');
+        btn.disabled = true;
+        btn.textContent = '⏳ 应用中...';
+        status.textContent = '正在更新数据库...';
+        status.style.color = '#f0b90b';
+        appendUpdateLog('开始将板块映射应用到数据库...', 'info');
+
+        fetch('/api/apply_sector_to_db', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // ★ 显示两个更新数量
+                    status.textContent = `✅ 成功 (个股 ${data.updated_stocks} 只，行业K线 ${data.updated_industry} 条)`;
+                    status.style.color = '#00c853';
+                    appendUpdateLog(`成功更新 ${data.updated_stocks} 只股票的板块信息，并重新计算 ${data.updated_industry} 条行业K线`, 'success');
+                } else {
+                    status.textContent = '❌ 失败';
+                    status.style.color = '#ff1744';
+                    appendUpdateLog(`应用失败: ${data.error || '未知错误'}`, 'error');
+                }
+            })
+            .catch(err => {
+                status.textContent = '❌ 请求异常';
+                status.style.color = '#ff1744';
+                appendUpdateLog(`请求异常: ${err.message}`, 'error');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = '📥 应用到数据库';
+            });
+    });
+
+
+</script>
+{% endblock %}
