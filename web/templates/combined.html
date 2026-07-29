@@ -498,13 +498,16 @@
                 combinedFilteredData = combinedData.slice();
             } else {
                 combinedFilteredData = combinedData.filter(item =>
-                    item.symbol.toLowerCase().includes(keyword) ||
-                    (item.touch_type && item.touch_type.toLowerCase().includes(keyword))
+                    (item.symbol && item.symbol.toLowerCase().includes(keyword)) ||
+                    (item.touch_type && item.touch_type.toLowerCase().includes(keyword)) ||
+                    (item.concept && item.concept.toLowerCase().includes(keyword)) ||
+                    (item.industry && item.industry.toLowerCase().includes(keyword))
                 );
             }
             combinedCurrentPage = 1;
             renderCombinedTable();
         });
+        
         btnClearCombinedSearch.addEventListener('click', function () {
             combinedSearchInput.value = '';
             combinedFilteredData = combinedData.slice();
