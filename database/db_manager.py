@@ -571,7 +571,7 @@ class DuckDBManager:
                     print(f"💾 已更新 {i+1}/{total} 只，成功 {success_count}")
                 
                 # 优化：减少sleep，从0.3改为0.15
-                time.sleep(0.15)
+                time.sleep(0.3)
                 
             except Exception as e:
                 print(f"❌ {thscode} 更新失败: {e}")
@@ -781,7 +781,7 @@ class DuckDBManager:
         
         return len(df_grouped)
     
-    
+
 
 
     def get_industry_kline(self, industry, start_date=None, end_date=None, limit=500):
