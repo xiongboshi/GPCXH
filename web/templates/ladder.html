@@ -23,7 +23,7 @@
     <div id="industryStatsArea"
         style="margin-bottom:15px; background:#0d1421; border-radius:8px; padding:12px; border:1px solid #1a2332;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <span style="color:#f0b90b; font-weight:600;">🏆 龙头板块TOP5（最近20日最高板行业）</span>
+            <span id="industryStatsTitle" style="color:#f0b90b; font-weight:600;">🏆 龙头板块TOP5（最近30日最高板行业）</span>
             <span style="color:#6a7a8e; font-size:12px;">点击龙头股票可查看K线</span>
         </div>
         <div id="industryStatsBody" style="display:flex; flex-wrap:wrap; gap:10px;">
@@ -70,11 +70,17 @@
     // ============================================================
     // 连板天梯特有 JavaScript
     // ============================================================
+    
+    // ★ 可配置常量：统计交易日数量
+    const DEFAULT_DAYS = 30;
+
+    // 全局变量
     let ladderData = [];
     let ladderCurrentPage = 1;
     let ladderPageSize = 20;
     let ladderFilteredData = [];
 
+    // DOM 元素
     const ladderDateInput = document.getElementById('ladderDateInput');
     const btnClearLadderDate = document.getElementById('btnClearLadderDate');
     const ladderArea = document.getElementById('ladderArea');
@@ -90,8 +96,36 @@
     const ladderTotalRecords = document.getElementById('ladderTotalRecords');
 
     // ============================================================
-    // 龙头板块统计（新增）
+    // 更新龙头板块统计标题
     // ============================================================
+    function updateIndustryStatsTitle() {
+        const titleEl = document.getElementById('industryStatsTitle');
+        if (titleEl) {
+            titleEl.textContent = `🏆 龙头板块TOP5（最近${DEFAULT_DAYS}日最高板行业）`;
+        }
+    }
+
+    // ============================================================
+    // 工具函数：过滤最近 N 个交易日
+    // ============================================================
+    function filterRecentData(data, days = DEFAULT_DAYS) {
+        if (!data || data.length === 0) return [];
+        // 按日期降序排序
+        const sorted = [...data].sort((a, b) => new Date(b.date) - new Date(a.date));
+        const uniqueDates = [];
+        const result = [];
+        for (const item of sorted) {
+            if (!uniqueDates.includes(item.date)) {
+                uniqueDates.push(item.date);
+            }
+            if (uniqueDates.length <= days) {
+                result.push(item);
+            } else {
+                break;
+            }
+        }
+        return result;
+    }
 
     // ============================================================
     // 龙头板块统计（最近20日最高板行业TOP5）
@@ -100,128 +134,130 @@
         const statsContainer = document.getElementById('industryStatsBody');
         if (!statsContainer) return;
 
-        const dates = [...new Set(ladderFilteredData.map(item => item.date))].sort().slice(-20);
+        // 使用 DEFAULT_DAYS 控制天数
+        const dates = [...new Set(ladderFilteredData.map(item => item.date))].sort().slice(-DEFAULT_DAYS);
         if (dates.length === 0) {
             statsContainer.innerHTML = '<span style="color:#6a7a8e; font-size:13px;">暂无数据</span>';
             return;
         }
 
-        const industryMap = {}; // { industry: { days: Set, stocks: { thscode: { name, maxBoard, concept } } } }
+        const recentData = ladderFilteredData.filter(item => dates.includes(item.date));
 
+        const allIndustryStocks = {};
+        recentData.forEach(item => {
+            const industry = item.industry ? item.industry.split(',')[0].trim() : '未分类';
+            if (!allIndustryStocks[industry]) {
+                allIndustryStocks[industry] = {};
+            }
+            const thscode = item.thscode;
+            const board = Number(item.board_num) || 0;
+            if (!allIndustryStocks[industry][thscode]) {
+                allIndustryStocks[industry][thscode] = {
+                    name: item.name || item.thscode,
+                    maxBoard: board,
+                    concept: item.concept || ''
+                };
+            } else if (board > allIndustryStocks[industry][thscode].maxBoard) {
+                allIndustryStocks[industry][thscode].maxBoard = board;
+            }
+        });
+
+        const leaderDays = {};
         dates.forEach(date => {
-            const dayData = ladderFilteredData.filter(item => item.date === date);
+            const dayData = recentData.filter(item => item.date === date);
             const maxBoard = Math.max(...dayData.map(item => Number(item.board_num) || 0));
             if (maxBoard === 0) return;
-            // 找出当日最高板股票
             const topStocks = dayData.filter(item => Number(item.board_num) === maxBoard);
-            // 按行业分组
-            const industryGroups = {};
-            topStocks.forEach(stock => {
-                const industry = stock.industry ? stock.industry.split(',')[0].trim() : '未分类';
-                if (!industryGroups[industry]) industryGroups[industry] = [];
-                industryGroups[industry].push(stock);
+            const industries = new Set();
+            topStocks.forEach(s => {
+                const industry = s.industry ? s.industry.split(',')[0].trim() : '未分类';
+                industries.add(industry);
             });
-            // 对每个行业，记录该日为龙头板块
-            Object.entries(industryGroups).forEach(([industry, stocks]) => {
-                if (!industryMap[industry]) {
-                    industryMap[industry] = { days: new Set(), stocks: {} };
-                }
-                industryMap[industry].days.add(date);
-                // 记录该行业当日最高板股票（可能多只，但都是一样的板数）
-                stocks.forEach(s => {
-                    const key = s.thscode;
-                    if (!industryMap[industry].stocks[key]) {
-                        industryMap[industry].stocks[key] = {
-                            name: s.name || s.thscode,
-                            maxBoard: Number(s.board_num) || 0,
-                            concept: s.concept || ''
-                        };
-                    } else {
-                        // 若已存在，更新板数（取最高）
-                        const current = industryMap[industry].stocks[key].maxBoard;
-                        const newBoard = Number(s.board_num) || 0;
-                        if (newBoard > current) {
-                            industryMap[industry].stocks[key].maxBoard = newBoard;
-                        }
-                    }
-                });
+            industries.forEach(industry => {
+                leaderDays[industry] = (leaderDays[industry] || 0) + 1;
             });
         });
 
-        // 转换为数组，按出现天数降序
-        const sorted = Object.entries(industryMap)
-            .map(([industry, data]) => ({
-                industry,
-                count: data.days.size,
-                stocks: Object.entries(data.stocks).map(([thscode, info]) => ({
+        const sorted = Object.entries(leaderDays)
+            .map(([industry, count]) => {
+                const stockData = allIndustryStocks[industry] || {};
+                const stockList = Object.entries(stockData).map(([thscode, info]) => ({
                     thscode,
                     name: info.name,
                     maxBoard: info.maxBoard,
                     concept: info.concept
-                }))
-            }))
-            .sort((a, b) => b.count - a.count);
+                }));
+                stockList.sort((a, b) => b.maxBoard - a.maxBoard);
+                return {
+                    industry,
+                    count,
+                    stockList,
+                    totalStocks: stockList.length
+                };
+            })
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
 
-        const top5 = sorted.slice(0, 5);
-
-        if (top5.length === 0) {
+        if (sorted.length === 0) {
             statsContainer.innerHTML = '<span style="color:#6a7a8e; font-size:13px;">暂无龙头数据</span>';
             return;
         }
 
         statsContainer.innerHTML = '';
-        top5.forEach(({ industry, count, stocks }, index) => {
-            // 股票按板数降序，取前2
-            const sortedStocks = stocks.sort((a, b) => b.maxBoard - a.maxBoard);
-            const top2Stocks = sortedStocks.slice(0, 2);
+        sorted.forEach(({ industry, count, stockList, totalStocks }, index) => {
+            const displayCount = Math.min(3, totalStocks);
+            const displayStocks = stockList.slice(0, displayCount);
+            const remaining = totalStocks - displayCount;
 
             const card = document.createElement('div');
             card.style.cssText = 'background:#111927; border-radius:6px; padding:10px; flex:1; min-width:150px; border:1px solid #1a2332;';
             const header = document.createElement('div');
             header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;';
             header.innerHTML = `
-            <span style="color:#f0b90b; font-weight:bold;">${index + 1}. ${industry}</span>
-            <span style="color:#6a7a8e; font-size:12px;">${count}次</span>
-        `;
+                <span style="color:#f0b90b; font-weight:bold;">${index + 1}. ${industry}</span>
+                <span style="color:#6a7a8e; font-size:12px;">最高板${count}天 | 共${totalStocks}只股板块跟风</span>
+            `;
             card.appendChild(header);
 
-            const stockList = document.createElement('div');
-            stockList.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px;';
-            top2Stocks.forEach((s, i) => {
+            const stockListDiv = document.createElement('div');
+            stockListDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px;';
+            displayStocks.forEach((s, i) => {
                 const span = document.createElement('span');
                 span.style.cssText = 'color:#e0e0e0; font-size:12px; cursor:pointer; padding:2px 6px; background:#0a0e17; border-radius:4px; border:1px solid #1a2332;';
                 span.textContent = `${s.name}(${s.maxBoard}板)`;
                 span.title = `${s.thscode} | 概念: ${s.concept}`;
-                span.addEventListener('click', function (e) {
+                span.addEventListener('click', function(e) {
                     e.stopPropagation();
                     loadKlineWithIndustry(s.thscode, s.name, industry);
                 });
-                stockList.appendChild(span);
-                if (i < top2Stocks.length - 1) {
+                stockListDiv.appendChild(span);
+                if (i < displayStocks.length - 1) {
                     const sep = document.createElement('span');
                     sep.textContent = '、';
                     sep.style.color = '#6a7a8e';
-                    stockList.appendChild(sep);
+                    stockListDiv.appendChild(sep);
                 }
             });
-            if (stocks.length > 2) {
+            if (remaining > 0) {
                 const more = document.createElement('span');
                 more.style.cssText = 'color:#6a7a8e; font-size:11px; margin-left:4px;';
-                more.textContent = `等${stocks.length}只`;
-                stockList.appendChild(more);
+                more.textContent = `等${remaining}只`;
+                stockListDiv.appendChild(more);
             }
-            card.appendChild(stockList);
+            card.appendChild(stockListDiv);
             statsContainer.appendChild(card);
         });
     }
 
-
     // ============================================================
-    // 原有函数
+    // 主要函数
     // ============================================================
     function showLadderResults(data) {
-        ladderData = data;
-        ladderFilteredData = data.slice();
+        updateIndustryStatsTitle(); // ★ 更新标题
+        // 使用封装的过滤函数，取最近 DEFAULT_DAYS 个交易日
+        const filtered = filterRecentData(data);
+        ladderData = filtered;
+        ladderFilteredData = filtered.slice();
         ladderCurrentPage = 1;
         renderLadderTable();
         ladderArea.classList.remove('hidden');
@@ -274,7 +310,7 @@
             document.getElementById('ladderStats').style.color = '#ffffff';
         }
 
-        // ★ 调用龙头板块统计
+        // 调用龙头板块统计
         renderIndustryStats();
 
         // 分页表格
@@ -320,7 +356,6 @@
         ladderNextPage.disabled = ladderCurrentPage >= totalPages;
     }
 
-
     // 加载股票+行业K线
     function loadKlineWithIndustry(code, name, industry) {
         if (!code) { appendLog('❌ 未找到股票代码', 'error'); return; }
@@ -340,11 +375,9 @@
             document.getElementById('resultArea').classList.remove('hidden');
             document.getElementById('status').textContent = '✅ 加载完成（含行业对比）';
 
-            // 个股K线
             renderChart(stockData, null);
             document.getElementById('klineInfo').textContent = stockData.length + ' 根K线 (个股: ' + (name || code) + ')';
 
-            // 行业K线
             const container = document.getElementById('industryChartContainer');
             if (industryData && industryData.length > 0) {
                 container.style.display = 'block';
