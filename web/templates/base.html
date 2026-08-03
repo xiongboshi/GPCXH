@@ -911,12 +911,12 @@
                 });
             }
 
-            // ===== 均线配置 =====
+            // 均线配置（同花顺风格）
             const maConfigs = [
-                { period: 5, color: '#C0C0C0', name: 'MA5' },   // 灰色
-                { period: 10, color: '#CC66FF', name: 'MA10' },  // 紫色
-                { period: 20, color: '#F0B90B', name: 'MA20' },  // 黄色
-                { period: 60, color: '#0066FF', name: 'MA60' }   // 蓝色
+                { period: 5, color: '#B8B8B8', name: 'MA5' },
+                { period: 10, color: '#F0B90B', name: 'MA10' },
+                { period: 20, color: '#CC66FF', name: 'MA20' },
+                { period: 60, color: '#00CC33', name: 'MA60' }
             ];
             const maSeries = maConfigs.map(cfg => {
                 const maData = data.map(d => d[`ma${cfg.period}`] !== undefined ? d[`ma${cfg.period}`] : null);
@@ -943,15 +943,16 @@
                         const d = data[idx];
                         if (!d) return '';
                         let html = `<div style="font-weight:600;">${d.trade_date}</div>
-                    开盘: ${d.open_price}<br>最高: ${d.high_price}<br>最低: ${d.low_price}<br>收盘: ${d.close_price}<br>
-                    成交量: ${d.volume}<br>涨跌幅: ${d.pct_chg ? d.pct_chg.toFixed(2) : '0.00'}%`;
+                            开盘: ${d.open_price}<br>最高: ${d.high_price}<br>最低: ${d.low_price}<br>收盘: ${d.close_price}<br>
+                            成交量: ${d.volume}<br>涨跌幅: ${d.pct_chg ? d.pct_chg.toFixed(2) : '0.00'}%`;
                         // 显示均线值（仅显示有数据的均线）
-                        const maLines = params.filter(p => p.seriesName.startsWith('MA'));
+                        const maLines = params.filter(p => p.seriesName && p.seriesName.startsWith('MA'));
                         if (maLines.length) {
-                            html += '<br><span style="color:#f0b90b;">均线:</span>';
+                            html += '<br><span style="color:#F0B90B;">均线:</span>';
                             maLines.forEach(p => {
-                                if (p.value !== null) {
-                                    html += ` ${p.seriesName} ${p.value.toFixed(2)}`;
+                                // ★ 修复：确保 p.value 不为 null/undefined 且为数字
+                                if (p.value !== null && p.value !== undefined && !isNaN(p.value)) {
+                                    html += ` ${p.seriesName} ${Number(p.value).toFixed(2)}`;
                                 }
                             });
                         }
@@ -1044,14 +1045,12 @@
                             }
                         }
                     },
-                    // 均线系列
                     ...maSeries
                 ]
             };
             chart.setOption(option);
             chart.resize();
         }
-
 
         // ============================================================
         // 行业K线渲染（独立图表）
