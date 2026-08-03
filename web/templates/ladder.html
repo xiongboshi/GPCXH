@@ -263,6 +263,7 @@
         ladderArea.classList.remove('hidden');
     }
 
+
     function renderLadderTable() {
         // 统计信息（最高板 + 概念/行业TOP3）
         if (ladderFilteredData.length > 0) {
@@ -329,6 +330,10 @@
             const mainIndustry = item.industry ? item.industry.split(',')[0].trim() : '';
             tr.dataset.industry = mainIndustry;
             tr.addEventListener('click', function () {
+                // ★ 移除所有行的选中状态
+                document.querySelectorAll('#ladderTableBody tr').forEach(row => row.classList.remove('selected'));
+                // ★ 为当前行添加选中状态
+                this.classList.add('selected');
                 const code = this.dataset.thscode;
                 const name = this.dataset.name;
                 const industry = this.dataset.industry;
@@ -355,6 +360,9 @@
         ladderPrevPage.disabled = ladderCurrentPage <= 1;
         ladderNextPage.disabled = ladderCurrentPage >= totalPages;
     }
+
+
+
 
     // 加载股票+行业K线
     function loadKlineWithIndustry(code, name, industry) {
