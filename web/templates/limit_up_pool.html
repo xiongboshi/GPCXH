@@ -76,14 +76,16 @@
 
 {% endblock %}
 
+
 {% block scripts %}
 <script>
 // ============================================================
 // 涨停池特有 JavaScript
 // ============================================================
 const DEFAULT_DAYS = 10;
-const MAX_STATS_DISPLAY = 30; // 最大显示的行业数
+const MAX_STATS_DISPLAY = 40; // 最大显示的行业数
 let isStatsExpanded = false;
+let selectedIndustry = null;   // 当前选中的行业（null表示全部）
 
 let poolData = [];
 let poolCurrentPage = 1;
@@ -120,9 +122,10 @@ function formatSealMoney(val) {
 }
 
 // ============================================================
-// 前端统计板块排行（排除“未分类”）
+// 前端统计板块排行（基于传入的数据）
 // ============================================================
-function renderPoolStats(data) {
+function renderPoolStats(dataArray) {
+    const data = dataArray || [];
     const container = document.getElementById('poolStatsBody');
     if (!container) return;
     if (!data || data.length === 0) {
@@ -152,26 +155,46 @@ function renderPoolStats(data) {
         }))
         .sort((a, b) => b.count - a.count);
 
-    const totalIndustries = sorted.length; // 总行业数
+    const totalIndustries = sorted.length;
     if (totalIndustries === 0) {
         container.innerHTML = '<span style="color:#6a7a8e; font-size:13px;">暂无行业数据</span>';
         document.getElementById('poolStatsCount').textContent = '';
         return;
     }
 
-    // ★ 只取前30个行业
-    const top30 = sorted.slice(0, MAX_STATS_DISPLAY);
+    // ★ 如果选中的行业不在当前排行数据中，自动取消选中
+    if (selectedIndustry && !sorted.some(s => s.industry === selectedIndustry)) {
+        selectedIndustry = null;
+    }
 
+    const top30 = sorted.slice(0, MAX_STATS_DISPLAY);
     container.innerHTML = '';
     top30.forEach((item, index) => {
         const card = document.createElement('div');
-        card.style.cssText = 'background:#111927; border-radius:6px; padding:10px; flex:1; min-width:150px; border:1px solid #1a2332; cursor:pointer;';
+        const isActive = (selectedIndustry === item.industry);
+        card.style.cssText = `
+            background: ${isActive ? '#1a2a3a' : '#111927'};
+            border-radius: 6px;
+            padding: 10px;
+            flex: 1;
+            min-width: 150px;
+            border: 2px solid ${isActive ? '#f0b90b' : '#1a2332'};
+            cursor: pointer;
+            transition: all 0.2s;
+        `;
+        card.dataset.industry = item.industry;
+
         card.addEventListener('click', function() {
-            const industry = item.industry;
-            if (industry && industry !== '未分类') {
+            const industry = this.dataset.industry;
+            if (selectedIndustry === industry) {
+                selectedIndustry = null;
+            } else {
+                selectedIndustry = industry;
                 loadIndustryKline(industry);
             }
+            applyFilters(); // 重新应用过滤并刷新
         });
+
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                 <span style="color:#f0b90b; font-weight:bold; font-size:13px;">${index + 1}. ${item.industry}</span>
@@ -185,10 +208,9 @@ function renderPoolStats(data) {
         container.appendChild(card);
     });
 
-    // 显示总行业数，但如果超过30，显示"共 X 个行业（显示前30）"
     document.getElementById('poolStatsCount').textContent = `共 ${totalIndustries} 个行业${totalIndustries > 30 ? '（显示前30）' : ''}`;
 
-    // 展开/收起状态（展开时显示所有30个，收起时只显示部分，但已有的样式 max-height 控制显示数量，可保持）
+    // 展开/收起控制
     if (!isStatsExpanded) {
         container.style.maxHeight = '300px';
         container.style.overflow = 'hidden';
@@ -238,8 +260,7 @@ function loadIndustryKline(industry) {
             document.getElementById('resultArea').classList.remove('hidden');
             document.getElementById('status').textContent = '✅ 加载完成（行业K线）';
             
-            // 清空个股K线区域
-            document.getElementById('klineInfo').textContent = '查看行业K线';
+            document.getElementById('klineInfo').textContent = '查看行业K线 - ' + industry;
             if (chart) {
                 chart.clear();
                 chart.setOption({
@@ -257,7 +278,6 @@ function loadIndustryKline(industry) {
                 document.getElementById('industryKlineInfo').textContent = '无行业数据';
                 appendLog(`⚠️ 未找到行业 ${industry} 的K线数据`, 'info');
             }
-            // 清空数据表格
             document.getElementById('tableCount').textContent = '0 条';
             document.getElementById('tableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6a7a8e;padding:20px;">点击个股可查看详细K线</td></tr>';
         })
@@ -289,11 +309,9 @@ function loadStockKlineWithIndustry(code, name, industry) {
         document.getElementById('resultArea').classList.remove('hidden');
         document.getElementById('status').textContent = '✅ 加载完成（含行业对比）';
 
-        // 个股K线
         renderChart(stockData, null);
         document.getElementById('klineInfo').textContent = stockData.length + ' 根K线 (个股: ' + (name || code) + ')';
 
-        // 行业K线
         const container = document.getElementById('industryChartContainer');
         if (industryData && industryData.length > 0) {
             container.style.display = 'block';
@@ -332,7 +350,6 @@ function renderPoolTable() {
         tr.dataset.name = item.name;
         tr.dataset.industry = mainIndustry;
         tr.addEventListener('click', function() {
-            // 移除所有行的选中状态
             document.querySelectorAll('#poolTableBody tr').forEach(row => row.classList.remove('selected'));
             this.classList.add('selected');
             loadStockKlineWithIndustry(this.dataset.thscode, this.dataset.name, this.dataset.industry);
@@ -364,29 +381,39 @@ function renderPoolTable() {
 }
 
 // ============================================================
-// 过滤数据（日期、搜索）
+// 过滤数据（日期、搜索、行业）
 // ============================================================
 function applyFilters() {
     const dateVal = poolDateInput.value;
     const keyword = poolSearchInput.value.trim().toLowerCase();
     
-    let filtered = poolData.slice();
+    // 1. 先基于 poolData 做日期和搜索过滤（不包含行业）
+    let filteredForStats = poolData.slice();
     if (dateVal) {
-        filtered = filtered.filter(item => item.trade_date === dateVal);
+        filteredForStats = filteredForStats.filter(item => item.trade_date === dateVal);
     }
     if (keyword) {
-        filtered = filtered.filter(item =>
+        filteredForStats = filteredForStats.filter(item =>
             (item.thscode && item.thscode.toLowerCase().includes(keyword)) ||
             (item.name && item.name.toLowerCase().includes(keyword)) ||
-            (item.concept && item.concept.toLowerCase().includes(keyword)) ||
             (item.industry && item.industry.toLowerCase().includes(keyword)) ||
             (item.limit_up_reason && item.limit_up_reason.toLowerCase().includes(keyword))
         );
     }
-    poolFilteredData = filtered;
+    
+    // 2. 再对表格数据应用行业过滤（如果有选中）
+    let filteredForTable = filteredForStats.slice();
+    if (selectedIndustry) {
+        filteredForTable = filteredForTable.filter(item => {
+            const ind = item.industry ? item.industry.split(',')[0].trim() : '';
+            return ind === selectedIndustry;
+        });
+    }
+    
+    poolFilteredData = filteredForTable;
     poolCurrentPage = 1;
     renderPoolTable();
-    renderPoolStats(poolFilteredData);
+    renderPoolStats(filteredForStats); // ★ 排行基于日期+搜索过滤（不含行业）
 }
 
 // ============================================================
@@ -406,11 +433,12 @@ function fetchPoolData() {
                 poolData = list;
                 poolDateInput.value = '';
                 poolSearchInput.value = '';
+                selectedIndustry = null;
                 poolFilteredData = poolData.slice();
                 poolCurrentPage = 1;
                 renderPoolTable();
                 poolArea.classList.remove('hidden');
-                renderPoolStats(poolData);
+                renderPoolStats(poolData);  // ★ 初始传入全部数据
             } else {
                 throw new Error(data.error || '加载失败');
             }

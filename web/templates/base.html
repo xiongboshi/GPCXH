@@ -1114,7 +1114,8 @@
                         if (maLines.length) {
                             html += '<br><span style="color:#F0B90B;">均线:</span>';
                             maLines.forEach(p => {
-                                if (p.value !== null) {
+                                // ★ 修复：确保 p.value 不为 null/undefined 且为数字
+                                if (p.value !== null && p.value !== undefined && !isNaN(p.value)) {
                                     html += ` ${p.seriesName} ${p.value.toFixed(2)}`;
                                 }
                             });

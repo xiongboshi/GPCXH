@@ -79,6 +79,7 @@
     let ladderCurrentPage = 1;
     let ladderPageSize = 20;
     let ladderFilteredData = [];
+    let selectedIndustry = null;   // 当前选中的行业（null表示全部）
 
     // DOM 元素
     const ladderDateInput = document.getElementById('ladderDateInput');
@@ -128,142 +129,190 @@
     }
 
     // ============================================================
-    // 龙头板块统计（最近20日最高板行业TOP5）
+    // 龙头板块统计（基于 ladderData 原始数据，不受搜索影响）
     // ============================================================
+
     function renderIndustryStats() {
-        const statsContainer = document.getElementById('industryStatsBody');
-        if (!statsContainer) return;
+    const statsContainer = document.getElementById('industryStatsBody');
+    if (!statsContainer) return;
 
-        // 使用 DEFAULT_DAYS 控制天数
-        const dates = [...new Set(ladderFilteredData.map(item => item.date))].sort().slice(-DEFAULT_DAYS);
-        if (dates.length === 0) {
-            statsContainer.innerHTML = '<span style="color:#6a7a8e; font-size:13px;">暂无数据</span>';
-            return;
-        }
-
-        const recentData = ladderFilteredData.filter(item => dates.includes(item.date));
-
-        const allIndustryStocks = {};
-        recentData.forEach(item => {
-            const industry = item.industry ? item.industry.split(',')[0].trim() : '未分类';
-            if (!allIndustryStocks[industry]) {
-                allIndustryStocks[industry] = {};
-            }
-            const thscode = item.thscode;
-            const board = Number(item.board_num) || 0;
-            if (!allIndustryStocks[industry][thscode]) {
-                allIndustryStocks[industry][thscode] = {
-                    name: item.name || item.thscode,
-                    maxBoard: board,
-                    concept: item.concept || ''
-                };
-            } else if (board > allIndustryStocks[industry][thscode].maxBoard) {
-                allIndustryStocks[industry][thscode].maxBoard = board;
-            }
-        });
-
-        const leaderDays = {};
-        dates.forEach(date => {
-            const dayData = recentData.filter(item => item.date === date);
-            const maxBoard = Math.max(...dayData.map(item => Number(item.board_num) || 0));
-            if (maxBoard === 0) return;
-            const topStocks = dayData.filter(item => Number(item.board_num) === maxBoard);
-            const industries = new Set();
-            topStocks.forEach(s => {
-                const industry = s.industry ? s.industry.split(',')[0].trim() : '未分类';
-                industries.add(industry);
-            });
-            industries.forEach(industry => {
-                leaderDays[industry] = (leaderDays[industry] || 0) + 1;
-            });
-        });
-
-        const sorted = Object.entries(leaderDays)
-            .map(([industry, count]) => {
-                const stockData = allIndustryStocks[industry] || {};
-                const stockList = Object.entries(stockData).map(([thscode, info]) => ({
-                    thscode,
-                    name: info.name,
-                    maxBoard: info.maxBoard,
-                    concept: info.concept
-                }));
-                stockList.sort((a, b) => b.maxBoard - a.maxBoard);
-                return {
-                    industry,
-                    count,
-                    stockList,
-                    totalStocks: stockList.length
-                };
-            })
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 5);
-
-        if (sorted.length === 0) {
-            statsContainer.innerHTML = '<span style="color:#6a7a8e; font-size:13px;">暂无龙头数据</span>';
-            return;
-        }
-
-        statsContainer.innerHTML = '';
-        sorted.forEach(({ industry, count, stockList, totalStocks }, index) => {
-            const displayCount = Math.min(3, totalStocks);
-            const displayStocks = stockList.slice(0, displayCount);
-            const remaining = totalStocks - displayCount;
-
-            const card = document.createElement('div');
-            card.style.cssText = 'background:#111927; border-radius:6px; padding:10px; flex:1; min-width:150px; border:1px solid #1a2332;';
-            const header = document.createElement('div');
-            header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;';
-            header.innerHTML = `
-                <span style="color:#f0b90b; font-weight:bold;">${index + 1}. ${industry}</span>
-                <span style="color:#6a7a8e; font-size:12px;">最高板${count}天 | 共${totalStocks}只股板块跟风</span>
-            `;
-            card.appendChild(header);
-
-            const stockListDiv = document.createElement('div');
-            stockListDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px;';
-            displayStocks.forEach((s, i) => {
-                const span = document.createElement('span');
-                span.style.cssText = 'color:#e0e0e0; font-size:12px; cursor:pointer; padding:2px 6px; background:#0a0e17; border-radius:4px; border:1px solid #1a2332;';
-                span.textContent = `${s.name}(${s.maxBoard}板)`;
-                span.title = `${s.thscode} | 概念: ${s.concept}`;
-                span.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    loadKlineWithIndustry(s.thscode, s.name, industry);
-                });
-                stockListDiv.appendChild(span);
-                if (i < displayStocks.length - 1) {
-                    const sep = document.createElement('span');
-                    sep.textContent = '、';
-                    sep.style.color = '#6a7a8e';
-                    stockListDiv.appendChild(sep);
-                }
-            });
-            if (remaining > 0) {
-                const more = document.createElement('span');
-                more.style.cssText = 'color:#6a7a8e; font-size:11px; margin-left:4px;';
-                more.textContent = `等${remaining}只`;
-                stockListDiv.appendChild(more);
-            }
-            card.appendChild(stockListDiv);
-            statsContainer.appendChild(card);
-        });
+    const data = ladderData || [];
+    const dates = [...new Set(data.map(item => item.date))].sort();
+    if (dates.length === 0) {
+        statsContainer.innerHTML = '<span style="color:#6a7a8e; font-size:13px;">暂无数据</span>';
+        return;
     }
 
+    const allIndustryStocks = {};
+    data.forEach(item => {
+        const industry = item.industry ? item.industry.split(',')[0].trim() : '未分类';
+        if (!allIndustryStocks[industry]) {
+            allIndustryStocks[industry] = {};
+        }
+        const thscode = item.thscode;
+        const board = Number(item.board_num) || 0;
+        if (!allIndustryStocks[industry][thscode]) {
+            allIndustryStocks[industry][thscode] = {
+                name: item.name || item.thscode,
+                maxBoard: board,
+                concept: item.concept || ''
+            };
+        } else if (board > allIndustryStocks[industry][thscode].maxBoard) {
+            allIndustryStocks[industry][thscode].maxBoard = board;
+        }
+    });
+
+    const leaderDays = {};
+    dates.forEach(date => {
+        const dayData = data.filter(item => item.date === date);
+        const maxBoard = Math.max(...dayData.map(item => Number(item.board_num) || 0));
+        if (maxBoard === 0) return;
+        const topStocks = dayData.filter(item => Number(item.board_num) === maxBoard);
+        const industries = new Set();
+        topStocks.forEach(s => {
+            const industry = s.industry ? s.industry.split(',')[0].trim() : '未分类';
+            industries.add(industry);
+        });
+        industries.forEach(industry => {
+            leaderDays[industry] = (leaderDays[industry] || 0) + 1;
+        });
+    });
+
+    const sorted = Object.entries(leaderDays)
+        .map(([industry, count]) => {
+            const stockData = allIndustryStocks[industry] || {};
+            const stockList = Object.entries(stockData).map(([thscode, info]) => ({
+                thscode,
+                name: info.name,
+                maxBoard: info.maxBoard,
+                concept: info.concept
+            }));
+            stockList.sort((a, b) => b.maxBoard - a.maxBoard);
+            return {
+                industry,
+                count,
+                stockList,
+                totalStocks: stockList.length
+            };
+        })
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+    if (sorted.length === 0) {
+        statsContainer.innerHTML = '<span style="color:#6a7a8e; font-size:13px;">暂无龙头数据</span>';
+        return;
+    }
+
+    statsContainer.innerHTML = '';
+    sorted.forEach(({ industry, count, stockList, totalStocks }, index) => {
+        const displayCount = Math.min(3, totalStocks);
+        const displayStocks = stockList.slice(0, displayCount);
+        const remaining = totalStocks - displayCount;
+
+        // ★ 取出该行业龙头股（排行第一）
+        const leader = stockList[0];
+
+        const card = document.createElement('div');
+        const isActive = (selectedIndustry === industry);
+        card.style.cssText = `
+            background: ${isActive ? '#1a2a3a' : '#111927'};
+            border-radius: 6px;
+            padding: 10px;
+            flex: 1;
+            min-width: 150px;
+            border: 2px solid ${isActive ? '#f0b90b' : '#1a2332'};
+            cursor: pointer;
+            transition: all 0.2s;
+        `;
+        card.dataset.industry = industry;
+
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('.stock-span')) return;
+            const ind = this.dataset.industry;
+            if (selectedIndustry === ind) {
+                selectedIndustry = null;
+                // 取消选中时，不自动切换个股K线（保留当前）
+            } else {
+                selectedIndustry = ind;
+                // ★ 选中行业时，加载该行业龙头个股K线
+                if (leader) {
+                    loadKlineWithIndustry(leader.thscode, leader.name, ind);
+                }
+            }
+            applyFilters();
+        });
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;';
+        header.innerHTML = `
+            <span style="color:#f0b90b; font-weight:bold;">${index + 1}. ${industry}</span>
+            <span style="color:#6a7a8e; font-size:12px;">最高板${count}天 | 共${totalStocks}只股板块跟风</span>
+        `;
+        card.appendChild(header);
+
+        const stockListDiv = document.createElement('div');
+        stockListDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px;';
+        displayStocks.forEach((s, i) => {
+            const span = document.createElement('span');
+            span.className = 'stock-span';
+            span.style.cssText = 'color:#e0e0e0; font-size:12px; cursor:pointer; padding:2px 6px; background:#0a0e17; border-radius:4px; border:1px solid #1a2332;';
+            span.textContent = `${s.name}(${s.maxBoard}板)`;
+            span.title = `${s.thscode} | 概念: ${s.concept}`;
+            span.addEventListener('click', function(e) {
+                e.stopPropagation();
+                loadKlineWithIndustry(s.thscode, s.name, industry);
+            });
+            stockListDiv.appendChild(span);
+            if (i < displayStocks.length - 1) {
+                const sep = document.createElement('span');
+                sep.textContent = '、';
+                sep.style.color = '#6a7a8e';
+                stockListDiv.appendChild(sep);
+            }
+        });
+        if (remaining > 0) {
+            const more = document.createElement('span');
+            more.style.cssText = 'color:#6a7a8e; font-size:11px; margin-left:4px;';
+            more.textContent = `等${remaining}只`;
+            stockListDiv.appendChild(more);
+        }
+        card.appendChild(stockListDiv);
+        statsContainer.appendChild(card);
+    });
+}
+
     // ============================================================
-    // 主要函数
+    // 统一过滤函数（搜索 + 行业）
     // ============================================================
-    function showLadderResults(data) {
-        updateIndustryStatsTitle(); // ★ 更新标题
-        // 使用封装的过滤函数，取最近 DEFAULT_DAYS 个交易日
-        const filtered = filterRecentData(data);
-        ladderData = filtered;
-        ladderFilteredData = filtered.slice();
+    function applyFilters() {
+        const keyword = ladderSearchInput.value.trim().toLowerCase();
+        let filtered = ladderData.slice();
+
+        if (keyword) {
+            filtered = filtered.filter(item =>
+                (item.thscode && item.thscode.toLowerCase().includes(keyword)) ||
+                (item.name && item.name.toLowerCase().includes(keyword)) ||
+                (item.concept && item.concept.toLowerCase().includes(keyword)) ||
+                (item.industry && item.industry.toLowerCase().includes(keyword))
+            );
+        }
+
+        if (selectedIndustry) {
+            filtered = filtered.filter(item => {
+                const ind = item.industry ? item.industry.split(',')[0].trim() : '';
+                return ind === selectedIndustry;
+            });
+        }
+
+        ladderFilteredData = filtered;
         ladderCurrentPage = 1;
         renderLadderTable();
-        ladderArea.classList.remove('hidden');
+        renderIndustryStats();
     }
 
-
+    // ============================================================
+    // 主要表格渲染（含统计信息和分页）
+    // ============================================================
     function renderLadderTable() {
         // 统计信息（最高板 + 概念/行业TOP3）
         if (ladderFilteredData.length > 0) {
@@ -311,9 +360,6 @@
             document.getElementById('ladderStats').style.color = '#ffffff';
         }
 
-        // 调用龙头板块统计
-        renderIndustryStats();
-
         // 分页表格
         const start = (ladderCurrentPage - 1) * ladderPageSize;
         const end = Math.min(start + ladderPageSize, ladderFilteredData.length);
@@ -330,9 +376,7 @@
             const mainIndustry = item.industry ? item.industry.split(',')[0].trim() : '';
             tr.dataset.industry = mainIndustry;
             tr.addEventListener('click', function () {
-                // ★ 移除所有行的选中状态
                 document.querySelectorAll('#ladderTableBody tr').forEach(row => row.classList.remove('selected'));
-                // ★ 为当前行添加选中状态
                 this.classList.add('selected');
                 const code = this.dataset.thscode;
                 const name = this.dataset.name;
@@ -361,10 +405,9 @@
         ladderNextPage.disabled = ladderCurrentPage >= totalPages;
     }
 
-
-
-
+    // ============================================================
     // 加载股票+行业K线
+    // ============================================================
     function loadKlineWithIndustry(code, name, industry) {
         if (!code) { appendLog('❌ 未找到股票代码', 'error'); return; }
         const limit = document.getElementById('limitSelect').value;
@@ -405,28 +448,16 @@
         });
     }
 
+    // ============================================================
     // 搜索和分页事件
+    // ============================================================
     ladderSearchInput.addEventListener('input', function () {
-        const keyword = this.value.trim().toLowerCase();
-        if (!keyword) {
-            ladderFilteredData = ladderData.slice();
-        } else {
-            ladderFilteredData = ladderData.filter(item =>
-                (item.thscode && item.thscode.toLowerCase().includes(keyword)) ||
-                (item.name && item.name.toLowerCase().includes(keyword)) ||
-                (item.concept && item.concept.toLowerCase().includes(keyword)) ||
-                (item.industry && item.industry.toLowerCase().includes(keyword))
-            );
-        }
-        ladderCurrentPage = 1;
-        renderLadderTable();
+        applyFilters();
     });
 
     btnClearLadderSearch.addEventListener('click', function () {
         ladderSearchInput.value = '';
-        ladderFilteredData = ladderData.slice();
-        ladderCurrentPage = 1;
-        renderLadderTable();
+        applyFilters();
     });
 
     ladderPrevPage.addEventListener('click', function () {
@@ -445,7 +476,9 @@
         renderLadderTable();
     });
 
-    // 加载数据
+    // ============================================================
+    // 加载数据（API）
+    // ============================================================
     function fetchLadderData() {
         const btn = btnLadder;
         btn.disabled = true;
@@ -476,7 +509,23 @@
             });
     }
 
+    // ============================================================
+    // 显示结果（数据预处理）
+    // ============================================================
+    function showLadderResults(data) {
+        updateIndustryStatsTitle();
+        const filtered = filterRecentData(data);
+        ladderData = filtered;
+        selectedIndustry = null;
+        ladderFilteredData = filtered.slice();
+        ladderCurrentPage = 1;
+        applyFilters();
+        ladderArea.classList.remove('hidden');
+    }
+
+    // ============================================================
     // 按钮事件
+    // ============================================================
     btnLadder.addEventListener('click', function () {
         if (ladderArea.classList.contains('hidden')) {
             ladderArea.classList.remove('hidden');
@@ -492,6 +541,7 @@
 
     ladderDateInput.addEventListener('change', function () {
         if (!ladderArea.classList.contains('hidden')) {
+            selectedIndustry = null;  // 重置行业选中
             fetchLadderData();
         }
     });
@@ -499,6 +549,7 @@
     btnClearLadderDate.addEventListener('click', function () {
         ladderDateInput.value = '';
         if (!ladderArea.classList.contains('hidden')) {
+            selectedIndustry = null;
             fetchLadderData();
         }
     });
