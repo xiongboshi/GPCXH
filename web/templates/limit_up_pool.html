@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- ====== 涨停池控制按钮 ====== -->
+<div class="controls">
+    <div class="group" style="flex:0.5;min-width:80px;">
+        <label>&nbsp;</label>
+        <button class="btn btn-secondary" id="btnLimitUpPool">📈 涨停池</button>
+    </div>
+</div>
+
+<!-- ====== 涨停池结果 ====== -->
+<div id="poolArea" class="hidden">
+    <div class="header-row">
+        <span>📈 涨停股票池 <span id="poolTotal" style="font-size:12px; color:#6a7a8e; margin-left:10px;"></span></span>
+        <button class="btn btn-sm btn-secondary" id="btnClosePool">✕ 关闭</button>
+    </div>
+
+    <!-- 板块排行（可展开收起） -->
+    <div id="poolStatsArea" style="margin-bottom:15px; background:#0d1421; border-radius:8px; padding:12px; border:1px solid #1a2332;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span id="poolStatsTitle" style="color:#f0b90b; font-weight:600;">🏆 涨停板块排行（最近10日）</span>
+            <div>
+                <span id="poolStatsCount" style="color:#6a7a8e; font-size:12px; margin-right:10px;"></span>
+                <button class="btn btn-sm btn-secondary" id="btnToggleStats" style="padding:2px 10px;">展开</button>
+            </div>
+        </div>
+        <div id="poolStatsBody" style="display:flex; flex-wrap:wrap; gap:10px; max-height:300px; overflow:hidden; transition: max-height 0.3s;">
+            <!-- 动态生成 -->
+        </div>
+    </div>
+
+    <div style="margin-bottom:10px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input type="text" id="poolSearchInput" placeholder="🔍 搜索代码、名称、概念或行业..." style="flex:1; min-width:150px; background:#0d1421; border:1px solid #1a2332; border-radius:6px; color:#e0e0e0; padding:6px 12px; font-size:13px;">
+        <input type="date" id="poolDateInput" style="background:#0d1421; border:1px solid #1a2332; border-radius:6px; color:#e0e0e0; padding:6px 12px; font-size:13px;">
+        <button class="btn btn-sm btn-secondary" id="btnClearPoolDate" style="padding:6px 16px;">✕ 清除日期</button>
+        <button class="btn btn-sm btn-secondary" id="btnClearPoolSearch" style="padding:6px 16px;">✕ 清除搜索</button>
+    </div>
+
+    <div style="max-height:500px; overflow-y:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">代码</th>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">名称</th>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">连板数</th>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">涨停时间</th>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">涨停原因</th>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">封单额</th>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">日期</th>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">概念</th>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">行业</th>
+                    <th style="text-align:left; padding:8px 12px; background:#0d1421; color:#6a7a8e; font-weight:600; font-size:11px; position:sticky; top:0; z-index:1;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="poolTableBody"></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="poolPagination">
+        <button id="poolPrevPage">◀ 上一页</button>
+        <span class="page-info">第 <input type="number" id="poolPageInput" class="page-input" value="1" min="1"> 页 / 共 <span id="poolTotalPages">1</span> 页</span>
+        <button id="poolNextPage">下一页 ▶</button>
+        <span class="page-info">总记录: <span id="poolTotalRecords">0</span></span>
+    </div>
+</div>
+
+<style>
+    #poolTableBody tr.selected {
+        background: #2a3a4a !important;
+        border-left: 3px solid #f0b90b !important;
+    }
+    #poolTableBody tr:hover {
+        background: #1a2332;
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ============================================================
+// 涨停池特有 JavaScript
+// ============================================================
+const DEFAULT_DAYS = 10;
+const MAX_STATS_DISPLAY = 30; // 最大显示的行业数
+let isStatsExpanded = false;
+
+let poolData = [];
+let poolCurrentPage = 1;
+let poolPageSize = 20;
+let poolFilteredData = [];
+
+// DOM 元素（获取）
+const poolArea = document.getElementById('poolArea');
+const poolTableBody = document.getElementById('poolTableBody');
+const poolSearchInput = document.getElementById('poolSearchInput');
+const poolDateInput = document.getElementById('poolDateInput');
+const btnClearPoolDate = document.getElementById('btnClearPoolDate');
+const btnClearPoolSearch = document.getElementById('btnClearPoolSearch');
+const poolPrevPage = document.getElementById('poolPrevPage');
+const poolNextPage = document.getElementById('poolNextPage');
+const poolPageInput = document.getElementById('poolPageInput');
+const poolTotalPages = document.getElementById('poolTotalPages');
+const poolTotalRecords = document.getElementById('poolTotalRecords');
+const poolTotal = document.getElementById('poolTotal');
+const btnClosePool = document.getElementById('btnClosePool');
+const btnLimitUpPool = document.getElementById('btnLimitUpPool');
+const poolStatsBody = document.getElementById('poolStatsBody');
+const btnToggleStats = document.getElementById('btnToggleStats');
+const poolStatsCount = document.getElementById('poolStatsCount');
+
+// ============================================================
+// 格式化封单额
+// ============================================================
+function formatSealMoney(val) {
+    if (!val || val === 0) return '—';
+    if (val >= 1e8) return (val / 1e8).toFixed(2) + '亿';
+    if (val >= 1e4) return (val / 1e4).toFixed(2) + '万';
+    return val.toFixed(0);
+}
+
+// ============================================================
+// 前端统计板块排行（排除“未分类”）
+// ============================================================
+function renderPoolStats(data) {
+    const container = document.getElementById('poolStatsBody');
+    if (!container) return;
+    if (!data || data.length === 0) {
+        container.innerHTML = '<span style="color:#6a7a8e; font-size:13px;">暂无数据</span>';
+        document.getElementById('poolStatsCount').textContent = '';
+        return;
+    }
+
+    const stats = {};
+    data.forEach(item => {
+        let industry = item.industry ? item.industry.split(',')[0].trim() : '';
+        if (!industry || industry === '未分类') return;
+        if (!stats[industry]) {
+            stats[industry] = { count: 0, stocks: new Set(), totalBoard: 0 };
+        }
+        stats[industry].count += 1;
+        stats[industry].stocks.add(item.thscode);
+        stats[industry].totalBoard += (item.continue_day_cnt || 0);
+    });
+
+    const sorted = Object.entries(stats)
+        .map(([industry, data]) => ({
+            industry,
+            count: data.count,
+            stock_count: data.stocks.size,
+            avg_board: data.totalBoard / data.count
+        }))
+        .sort((a, b) => b.count - a.count);
+
+    const totalIndustries = sorted.length; // 总行业数
+    if (totalIndustries === 0) {
+        container.innerHTML = '<span style="color:#6a7a8e; font-size:13px;">暂无行业数据</span>';
+        document.getElementById('poolStatsCount').textContent = '';
+        return;
+    }
+
+    // ★ 只取前30个行业
+    const top30 = sorted.slice(0, MAX_STATS_DISPLAY);
+
+    container.innerHTML = '';
+    top30.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background:#111927; border-radius:6px; padding:10px; flex:1; min-width:150px; border:1px solid #1a2332; cursor:pointer;';
+        card.addEventListener('click', function() {
+            const industry = item.industry;
+            if (industry && industry !== '未分类') {
+                loadIndustryKline(industry);
+            }
+        });
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="color:#f0b90b; font-weight:bold; font-size:13px;">${index + 1}. ${item.industry}</span>
+                <span style="color:#6a7a8e; font-size:12px;">${item.count}次</span>
+            </div>
+            <div style="display:flex; gap:8px; font-size:12px; color:#6a7a8e;">
+                <span>📊 ${item.stock_count}只</span>
+                <span>📈 ${item.avg_board.toFixed(2)}板</span>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+
+    // 显示总行业数，但如果超过30，显示"共 X 个行业（显示前30）"
+    document.getElementById('poolStatsCount').textContent = `共 ${totalIndustries} 个行业${totalIndustries > 30 ? '（显示前30）' : ''}`;
+
+    // 展开/收起状态（展开时显示所有30个，收起时只显示部分，但已有的样式 max-height 控制显示数量，可保持）
+    if (!isStatsExpanded) {
+        container.style.maxHeight = '300px';
+        container.style.overflow = 'hidden';
+        document.getElementById('btnToggleStats').textContent = '展开';
+    } else {
+        container.style.maxHeight = 'none';
+        container.style.overflow = 'visible';
+        document.getElementById('btnToggleStats').textContent = '收起';
+    }
+}
+
+// ============================================================
+// 展开/收起切换
+// ============================================================
+btnToggleStats.addEventListener('click', function() {
+    isStatsExpanded = !isStatsExpanded;
+    if (isStatsExpanded) {
+        poolStatsBody.style.maxHeight = 'none';
+        poolStatsBody.style.overflow = 'visible';
+        this.textContent = '收起';
+    } else {
+        poolStatsBody.style.maxHeight = '300px';
+        poolStatsBody.style.overflow = 'hidden';
+        this.textContent = '展开';
+    }
+});
+
+// ============================================================
+// 加载行业K线（仅当行业有数据且不为“未分类”）
+// ============================================================
+function loadIndustryKline(industry) {
+    if (!industry || industry === '未分类') {
+        appendLog('⚠️ 该行业暂无K线数据', 'info');
+        return;
+    }
+    const limit = document.getElementById('limitSelect').value;
+    document.getElementById('loadingDiv').style.display = 'block';
+    document.getElementById('resultArea').classList.add('hidden');
+    document.getElementById('status').textContent = '⏳ 加载行业K线...';
+
+    const industryUrl = `/api/industry_kline?industry=${encodeURIComponent(industry)}&limit=${limit}`;
+
+    fetch(industryUrl)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('loadingDiv').style.display = 'none';
+            document.getElementById('resultArea').classList.remove('hidden');
+            document.getElementById('status').textContent = '✅ 加载完成（行业K线）';
+            
+            // 清空个股K线区域
+            document.getElementById('klineInfo').textContent = '查看行业K线';
+            if (chart) {
+                chart.clear();
+                chart.setOption({
+                    title: { text: '行业K线 - ' + industry, left: 'center', textStyle: { color: '#f0b90b' } }
+                });
+            }
+            
+            const container = document.getElementById('industryChartContainer');
+            if (data && data.length > 0) {
+                container.style.display = 'block';
+                renderIndustryChart(data, industry);
+                document.getElementById('industryKlineInfo').textContent = data.length + ' 根K线 (行业: ' + industry + ')';
+            } else {
+                container.style.display = 'none';
+                document.getElementById('industryKlineInfo').textContent = '无行业数据';
+                appendLog(`⚠️ 未找到行业 ${industry} 的K线数据`, 'info');
+            }
+            // 清空数据表格
+            document.getElementById('tableCount').textContent = '0 条';
+            document.getElementById('tableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6a7a8e;padding:20px;">点击个股可查看详细K线</td></tr>';
+        })
+        .catch(err => {
+            document.getElementById('loadingDiv').style.display = 'none';
+            document.getElementById('status').textContent = '❌ 加载失败';
+            appendLog(`❌ 加载行业K线失败: ${err.message}`, 'error');
+        });
+}
+
+// ============================================================
+// 加载个股K线 + 行业对比
+// ============================================================
+function loadStockKlineWithIndustry(code, name, industry) {
+    if (!code) { appendLog('❌ 未找到股票代码', 'error'); return; }
+    const limit = document.getElementById('limitSelect').value;
+    document.getElementById('loadingDiv').style.display = 'block';
+    document.getElementById('resultArea').classList.add('hidden');
+    document.getElementById('status').textContent = '⏳ 加载K线及行业对比...';
+
+    const stockUrl = `/api/kline?code=${code}&limit=${limit}`;
+    const industryUrl = (industry && industry !== '未分类') ? `/api/industry_kline?industry=${encodeURIComponent(industry)}&limit=${limit}` : null;
+
+    Promise.all([
+        fetch(stockUrl).then(res => res.json()),
+        industryUrl ? fetch(industryUrl).then(res => res.json()) : Promise.resolve(null)
+    ]).then(([stockData, industryData]) => {
+        document.getElementById('loadingDiv').style.display = 'none';
+        document.getElementById('resultArea').classList.remove('hidden');
+        document.getElementById('status').textContent = '✅ 加载完成（含行业对比）';
+
+        // 个股K线
+        renderChart(stockData, null);
+        document.getElementById('klineInfo').textContent = stockData.length + ' 根K线 (个股: ' + (name || code) + ')';
+
+        // 行业K线
+        const container = document.getElementById('industryChartContainer');
+        if (industryData && industryData.length > 0) {
+            container.style.display = 'block';
+            renderIndustryChart(industryData, industry);
+            document.getElementById('industryKlineInfo').textContent = industryData.length + ' 根K线 (行业: ' + industry + ')';
+        } else {
+            container.style.display = 'none';
+            document.getElementById('industryKlineInfo').textContent = '无行业数据';
+        }
+
+        renderTable(stockData);
+        document.getElementById('tableCount').textContent = stockData.length + ' 条';
+    }).catch(err => {
+        document.getElementById('loadingDiv').style.display = 'none';
+        document.getElementById('status').textContent = '❌ 加载失败';
+        appendLog(`❌ 加载数据失败: ${err.message}`, 'error');
+    });
+}
+
+// ============================================================
+// 渲染涨停池表格（含高亮选中行）
+// ============================================================
+function renderPoolTable() {
+    const start = (poolCurrentPage - 1) * poolPageSize;
+    const end = Math.min(start + poolPageSize, poolFilteredData.length);
+    const pageData = poolFilteredData.slice(start, end);
+    poolTableBody.innerHTML = '';
+    if (pageData.length === 0) {
+        poolTableBody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#6a7a8e;padding:20px;">暂无涨停数据</td></tr>';
+        return;
+    }
+    pageData.forEach(item => {
+        const tr = document.createElement('tr');
+        const mainIndustry = item.industry ? item.industry.split(',')[0].trim() : '未分类';
+        tr.dataset.thscode = item.thscode;
+        tr.dataset.name = item.name;
+        tr.dataset.industry = mainIndustry;
+        tr.addEventListener('click', function() {
+            // 移除所有行的选中状态
+            document.querySelectorAll('#poolTableBody tr').forEach(row => row.classList.remove('selected'));
+            this.classList.add('selected');
+            loadStockKlineWithIndustry(this.dataset.thscode, this.dataset.name, this.dataset.industry);
+        });
+        tr.innerHTML = `
+            <td>${item.thscode || ''}</td>
+            <td>${item.name || ''}</td>
+            <td style="color:#f0b90b; font-weight:bold;">${item.continue_day_cnt || 0}板</td>
+            <td>${item.limit_up_time || '—'}</td>
+            <td style="font-size:12px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${item.limit_up_reason || ''}">${item.limit_up_reason || '—'}</td>
+            <td>${formatSealMoney(item.seal_money)}</td>
+            <td>${item.trade_date || ''}</td>
+            <td style="font-size:12px; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${item.concept || ''}">${item.concept || ''}</td>
+            <td style="font-size:12px; max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${item.industry || ''}">${item.industry || ''}</td>
+            <td><button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); this.closest('tr').click();">查看K线</button></td>
+        `;
+        poolTableBody.appendChild(tr);
+    });
+
+    const total = poolFilteredData.length;
+    const totalPages = Math.ceil(total / poolPageSize) || 1;
+    poolTotalPages.textContent = totalPages;
+    poolTotalRecords.textContent = total;
+    poolPageInput.value = poolCurrentPage;
+    poolPageInput.max = totalPages;
+    poolPrevPage.disabled = poolCurrentPage <= 1;
+    poolNextPage.disabled = poolCurrentPage >= totalPages;
+    poolTotal.textContent = `共 ${total} 条记录`;
+}
+
+// ============================================================
+// 过滤数据（日期、搜索）
+// ============================================================
+function applyFilters() {
+    const dateVal = poolDateInput.value;
+    const keyword = poolSearchInput.value.trim().toLowerCase();
+    
+    let filtered = poolData.slice();
+    if (dateVal) {
+        filtered = filtered.filter(item => item.trade_date === dateVal);
+    }
+    if (keyword) {
+        filtered = filtered.filter(item =>
+            (item.thscode && item.thscode.toLowerCase().includes(keyword)) ||
+            (item.name && item.name.toLowerCase().includes(keyword)) ||
+            (item.concept && item.concept.toLowerCase().includes(keyword)) ||
+            (item.industry && item.industry.toLowerCase().includes(keyword)) ||
+            (item.limit_up_reason && item.limit_up_reason.toLowerCase().includes(keyword))
+        );
+    }
+    poolFilteredData = filtered;
+    poolCurrentPage = 1;
+    renderPoolTable();
+    renderPoolStats(poolFilteredData);
+}
+
+// ============================================================
+// 加载数据
+// ============================================================
+function fetchPoolData() {
+    const btn = btnLimitUpPool;
+    btn.disabled = true;
+    btn.textContent = '⏳ 加载中...';
+    appendLog('📈 加载涨停股票池...', 'info');
+    fetch('/api/limit_up_pool?days=' + DEFAULT_DAYS)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const list = data.data || [];
+                appendLog(`✅ 涨停池加载完成，共 ${list.length} 条记录`, 'success');
+                poolData = list;
+                poolDateInput.value = '';
+                poolSearchInput.value = '';
+                poolFilteredData = poolData.slice();
+                poolCurrentPage = 1;
+                renderPoolTable();
+                poolArea.classList.remove('hidden');
+                renderPoolStats(poolData);
+            } else {
+                throw new Error(data.error || '加载失败');
+            }
+        })
+        .catch(err => {
+            appendLog(`❌ 涨停池加载失败: ${err.message}`, 'error');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = '📈 涨停池';
+        });
+}
+
+// ============================================================
+// 事件绑定
+// ============================================================
+poolDateInput.addEventListener('change', applyFilters);
+poolSearchInput.addEventListener('input', applyFilters);
+btnClearPoolDate.addEventListener('click', function() { poolDateInput.value = ''; applyFilters(); });
+btnClearPoolSearch.addEventListener('click', function() { poolSearchInput.value = ''; applyFilters(); });
+poolPrevPage.addEventListener('click', function() { if (poolCurrentPage > 1) { poolCurrentPage--; renderPoolTable(); } });
+poolNextPage.addEventListener('click', function() { const totalPages = Math.ceil(poolFilteredData.length / poolPageSize) || 1; if (poolCurrentPage < totalPages) { poolCurrentPage++; renderPoolTable(); } });
+poolPageInput.addEventListener('change', function() { let page = parseInt(this.value); const totalPages = Math.ceil(poolFilteredData.length / poolPageSize) || 1; if (isNaN(page) || page < 1) page = 1; if (page > totalPages) page = totalPages; poolCurrentPage = page; renderPoolTable(); });
+
+btnLimitUpPool.addEventListener('click', function() {
+    if (poolArea.classList.contains('hidden')) {
+        fetchPoolData();
+    } else {
+        poolArea.classList.add('hidden');
+    }
+});
+
+btnClosePool.addEventListener('click', function() {
+    poolArea.classList.add('hidden');
+});
+</script>
+{% endblock %}

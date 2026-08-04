@@ -2,6 +2,11 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+import time
+import pandas as pd
 import amount
 import pickle
 
@@ -59,6 +64,12 @@ def ladder():
 @app.route('/update_data')
 def update_data():
     return render_template('update_data.html')
+
+@app.route('/limit_up_pool')
+def limit_up_pool():
+    return render_template('limit_up_pool.html')
+
+
 
 
 
@@ -145,8 +156,123 @@ def apply_sector_to_db():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
     
+#================================
+#涨停池 API 路由
+#================================
+@app.route('/api/limit_up_pool')
+def get_limit_up_pool():
+    try:
+        days = request.args.get('days', 10, type=int)
+        date_filter = request.args.get('date')  # 可选，格式 YYYY-MM-DD
+        
+        API_KEY = "sk-fuyao-sNNYGRAebGYCgzOovqNydUfa4Zajhslk"
+        
+        pool_data = get_recent_limit_up_pool(API_KEY, days=days)
+        if not pool_data:
+            return jsonify({'success': True, 'data': [], 'count': 0})
+        
+        # 获取股票列表信息
+        manager = DuckDBManager("database/market.duckdb")
+        df_stocks = manager.get_all_stocks_df()
+        manager.close()
+        
+        stock_info_map = {}
+        for _, row in df_stocks.iterrows():
+            stock_info_map[row['thscode']] = {
+                'concept': row.get('concept', ''),
+                'industry': row.get('industry', '')
+            }
+        
+        # 处理每个条目
+        for item in pool_data:
+            thscode = item.get('thscode')
+            info = stock_info_map.get(thscode, {})
+            item['concept'] = info.get('concept', '')
+            item['industry'] = info.get('industry', '')
+            
+            # ★ 强制日期格式为 YYYY-MM-DD
+            if 'trade_date' in item:
+                if isinstance(item['trade_date'], (pd.Timestamp, datetime)):
+                    item['trade_date'] = item['trade_date'].strftime('%Y-%m-%d')
+                elif isinstance(item['trade_date'], str):
+                    # 如果已经字符串，但可能包含时间，截取前10位
+                    item['trade_date'] = item['trade_date'][:10]
+        
+        # 按日期排序（最新在前）
+        pool_data.sort(key=lambda x: x.get('trade_date', ''), reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'data': pool_data,
+            'count': len(pool_data)
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
 
 
+
+
+#====================================
+#板块排行统计 API
+#====================================
+@app.route('/api/limit_up_pool_stats')
+def get_limit_up_pool_stats():
+    """
+    获取涨停池的板块排行统计
+    """
+    try:
+        days = request.args.get('days', 10, type=int)
+        
+        # 先获取涨停池数据
+        API_KEY = "sk-fuyao-sNNYGRAebGYCgzOovqNydUfa4Zajhslk"
+        pool_data = get_recent_limit_up_pool(API_KEY, days=days)
+        
+        if not pool_data:
+            return jsonify({'success': True, 'stats': []})
+        
+        # 统计各行业的涨停次数和涉及的股票
+        industry_stats = {}
+        for item in pool_data:
+            industry = item.get('industry', '未分类')
+            if not industry:
+                industry = '未分类'
+            # 取第一个行业（如果多个）
+            main_industry = industry.split(',')[0].strip()
+            
+            if main_industry not in industry_stats:
+                industry_stats[main_industry] = {
+                    'count': 0,
+                    'stocks': set(),
+                    'total_board': 0
+                }
+            industry_stats[main_industry]['count'] += 1
+            industry_stats[main_industry]['stocks'].add(item.get('thscode'))
+            industry_stats[main_industry]['total_board'] += item.get('continue_day_cnt', 0)
+        
+        # 转换为列表并排序
+        result = []
+        for industry, stats in industry_stats.items():
+            result.append({
+                'industry': industry,
+                'count': stats['count'],
+                'stock_count': len(stats['stocks']),
+                'total_board': stats['total_board'],
+                'avg_board': round(stats['total_board'] / stats['count'], 2) if stats['count'] > 0 else 0
+            })
+        
+        result.sort(key=lambda x: x['count'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'stats': result[:20]  # 返回前20
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 
@@ -457,6 +583,123 @@ def get_kline_with_tactics():
         db.close()
         return jsonify({'error': str(e)}), 500
     
+
+
+# ===================================
+#涨停池数据获取
+#====================================
+def fetch_limit_up_pool_with_retry(api_key, date_ms, page=1, size=200, max_retries=3):
+    """
+    带重试机制的涨停池获取函数
+    """
+    url = "https://fuyao.aicubes.cn/api/a-share/special-data/limit-up-pool"
+    params = {
+        'page': page,
+        'size': size,
+        'sort_field': 'limit_up_time',
+        'sort_dir': 'desc'
+    }
+    if date_ms:
+        params['date_ms'] = date_ms
+    
+    headers = {"X-api-key": api_key}
+    
+    # 使用带重试的 Session
+    session = requests.Session()
+    retry = Retry(
+        total=max_retries,
+        backoff_factor=1,  # 重试间隔 1s, 2s, 4s
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"]
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    
+    for attempt in range(max_retries + 1):
+        try:
+            resp = session.get(url, headers=headers, params=params, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            if data.get('code') != 0:
+                print(f"⚠️ API 错误: {data.get('message')}")
+                return None
+            return data.get('data', {})
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, ConnectionResetError) as e:
+            if attempt < max_retries:
+                wait = (attempt + 1) * 2  # 2s, 4s, 6s
+                print(f"⏳ 请求失败 ({e})，{wait}s 后重试 (尝试 {attempt+1}/{max_retries})...")
+                time.sleep(wait)
+                continue
+            else:
+                print(f"❌ 获取涨停池失败，已重试 {max_retries} 次: {e}")
+                return None
+        except Exception as e:
+            print(f"❌ 获取涨停池异常: {e}")
+            return None
+    return None
+
+
+def get_recent_limit_up_pool(api_key, days=10):
+    """
+    获取最近 N 天的涨停股票池数据（包含今天，带重试和错误处理）
+    """
+    all_items = []
+    
+    # 获取最近 days 天的交易日（从 daily_quotes 获取）
+    db = get_db()
+    dates_df = db.execute("""
+        SELECT DISTINCT trade_date 
+        FROM daily_quotes 
+        ORDER BY trade_date DESC 
+        LIMIT ?
+    """, [days]).df()
+    db.close()
+    
+    date_set = set()
+    if not dates_df.empty:
+        # 确保转换为字符串 YYYY-MM-DD
+        for d in dates_df['trade_date']:
+            if isinstance(d, (pd.Timestamp, datetime)):
+                date_set.add(d.strftime('%Y-%m-%d'))
+            else:
+                date_set.add(str(d))
+    
+    # 强制添加今天（字符串格式）
+    today_str = datetime.now().date().strftime('%Y-%m-%d')
+    date_set.add(today_str)
+    print(f"ℹ️ 添加今天 {today_str} 到查询列表（日线数据可能未更新）")
+    
+    # 按日期降序排序（所有元素都是字符串，可以安全排序）
+    date_list = sorted(date_set, reverse=True)[:days]
+    
+    for date_str in date_list:
+        # 转换为毫秒时间戳
+        dt = pd.to_datetime(date_str)
+        date_ms = int(dt.timestamp() * 1000)
+        
+        page = 1
+        while True:
+            result = fetch_limit_up_pool_with_retry(api_key, date_ms=date_ms, page=page, size=200)
+            if not result:
+                break
+            items = result.get('item', [])
+            if not items:
+                break
+            for item in items:
+                item['trade_date'] = date_str  # 直接使用字符串
+            all_items.extend(items)
+            
+            pagination = result.get('pagination', {})
+            if page >= pagination.get('pages', 1):
+                break
+            page += 1
+        
+        time.sleep(1.0)  # 避免请求过快
+    
+    return all_items
+
+
 
 
 
