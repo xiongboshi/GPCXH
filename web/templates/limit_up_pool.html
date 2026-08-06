@@ -1,11 +1,22 @@
 {% extends "base.html" %}
 
+
 {% block content %}
 <!-- ====== 涨停池控制按钮 ====== -->
-<div class="controls">
-    <div class="group" style="flex:0.5;min-width:80px;">
+<div class="controls" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+    <div class="group" style="flex:0 0 auto;">
         <label>&nbsp;</label>
         <button class="btn btn-secondary" id="btnLimitUpPool">📈 涨停池</button>
+    </div>
+    <div class="group" style="flex:0 0 auto;">
+        <label>连板数</label>
+        <select id="poolBoardSelect" style="background:#0d1421; border:1px solid #1a2332; border-radius:6px; color:#e0e0e0; padding:6px 12px; font-size:13px; cursor:pointer;">
+            <option value="all">全部</option>
+            <option value="1">1板</option>
+            <option value="2">2板</option>
+            <option value="3">3板</option>
+            <option value="4">4板及以上</option>
+        </select>
     </div>
 </div>
 
@@ -77,6 +88,7 @@
 {% endblock %}
 
 
+
 {% block scripts %}
 <script>
 // ============================================================
@@ -110,6 +122,7 @@ const btnLimitUpPool = document.getElementById('btnLimitUpPool');
 const poolStatsBody = document.getElementById('poolStatsBody');
 const btnToggleStats = document.getElementById('btnToggleStats');
 const poolStatsCount = document.getElementById('poolStatsCount');
+const poolBoardSelect = document.getElementById('poolBoardSelect');  // ★ 新增
 
 // ============================================================
 // 格式化封单额
@@ -381,13 +394,14 @@ function renderPoolTable() {
 }
 
 // ============================================================
-// 过滤数据（日期、搜索、行业）
+// 过滤数据（日期、搜索、连板数、行业）
 // ============================================================
 function applyFilters() {
     const dateVal = poolDateInput.value;
     const keyword = poolSearchInput.value.trim().toLowerCase();
+    const boardVal = poolBoardSelect.value;  // ★ 新增
     
-    // 1. 先基于 poolData 做日期和搜索过滤（不包含行业）
+    // 1. 基于 poolData 进行日期和搜索过滤（用于排行）
     let filteredForStats = poolData.slice();
     if (dateVal) {
         filteredForStats = filteredForStats.filter(item => item.trade_date === dateVal);
@@ -401,8 +415,22 @@ function applyFilters() {
         );
     }
     
-    // 2. 再对表格数据应用行业过滤（如果有选中）
+    // 2. 基于 filteredForStats 再应用连板数过滤和行业过滤（用于表格）
     let filteredForTable = filteredForStats.slice();
+    
+    // 连板数过滤
+    if (boardVal !== 'all') {
+        const targetBoard = parseInt(boardVal);
+        filteredForTable = filteredForTable.filter(item => {
+            const cnt = item.continue_day_cnt || 0;
+            if (targetBoard === 4) {
+                return cnt >= 4;   // 4板及以上
+            }
+            return cnt === targetBoard;
+        });
+    }
+    
+    // 行业过滤（如果有选中）
     if (selectedIndustry) {
         filteredForTable = filteredForTable.filter(item => {
             const ind = item.industry ? item.industry.split(',')[0].trim() : '';
@@ -413,7 +441,7 @@ function applyFilters() {
     poolFilteredData = filteredForTable;
     poolCurrentPage = 1;
     renderPoolTable();
-    renderPoolStats(filteredForStats); // ★ 排行基于日期+搜索过滤（不含行业）
+    renderPoolStats(filteredForStats); // ★ 排行基于日期+搜索（不含连板数和行业）
 }
 
 // ============================================================
@@ -433,6 +461,7 @@ function fetchPoolData() {
                 poolData = list;
                 poolDateInput.value = '';
                 poolSearchInput.value = '';
+                poolBoardSelect.value = 'all';  // ★ 重置连板筛选
                 selectedIndustry = null;
                 poolFilteredData = poolData.slice();
                 poolCurrentPage = 1;
@@ -457,6 +486,7 @@ function fetchPoolData() {
 // ============================================================
 poolDateInput.addEventListener('change', applyFilters);
 poolSearchInput.addEventListener('input', applyFilters);
+poolBoardSelect.addEventListener('change', applyFilters);  // ★ 新增
 btnClearPoolDate.addEventListener('click', function() { poolDateInput.value = ''; applyFilters(); });
 btnClearPoolSearch.addEventListener('click', function() { poolSearchInput.value = ''; applyFilters(); });
 poolPrevPage.addEventListener('click', function() { if (poolCurrentPage > 1) { poolCurrentPage--; renderPoolTable(); } });
@@ -476,3 +506,4 @@ btnClosePool.addEventListener('click', function() {
 });
 </script>
 {% endblock %}
+
