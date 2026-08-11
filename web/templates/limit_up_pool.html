@@ -96,15 +96,17 @@
 // ============================================================
 const DEFAULT_DAYS = 10;
 const MAX_STATS_DISPLAY = 40; // 最大显示的行业数
-let isStatsExpanded = false;
+let isStatsExpanded = true;   // 默认展开
 let selectedIndustry = null;   // 当前选中的行业（null表示全部）
 
 let poolData = [];
 let poolCurrentPage = 1;
 let poolPageSize = 20;
 let poolFilteredData = [];
+let poolStatsData = [];
+let starredIndustries = new Set();
 
-// DOM 元素（获取）
+// DOM 元素
 const poolArea = document.getElementById('poolArea');
 const poolTableBody = document.getElementById('poolTableBody');
 const poolSearchInput = document.getElementById('poolSearchInput');
@@ -122,7 +124,7 @@ const btnLimitUpPool = document.getElementById('btnLimitUpPool');
 const poolStatsBody = document.getElementById('poolStatsBody');
 const btnToggleStats = document.getElementById('btnToggleStats');
 const poolStatsCount = document.getElementById('poolStatsCount');
-const poolBoardSelect = document.getElementById('poolBoardSelect');  // ★ 新增
+const poolBoardSelect = document.getElementById('poolBoardSelect');
 
 // ============================================================
 // 格式化封单额
@@ -139,6 +141,8 @@ function formatSealMoney(val) {
 // ============================================================
 function renderPoolStats(dataArray) {
     const data = dataArray || [];
+    if (data.length > 0) poolStatsData = data;
+
     const container = document.getElementById('poolStatsBody');
     if (!container) return;
     if (!data || data.length === 0) {
@@ -175,7 +179,6 @@ function renderPoolStats(dataArray) {
         return;
     }
 
-    // ★ 如果选中的行业不在当前排行数据中，自动取消选中
     if (selectedIndustry && !sorted.some(s => s.industry === selectedIndustry)) {
         selectedIndustry = null;
     }
@@ -183,8 +186,10 @@ function renderPoolStats(dataArray) {
     const top30 = sorted.slice(0, MAX_STATS_DISPLAY);
     container.innerHTML = '';
     top30.forEach((item, index) => {
-        const card = document.createElement('div');
         const isActive = (selectedIndustry === item.industry);
+        const isStarred = starredIndustries.has(item.industry);
+
+        const card = document.createElement('div');
         card.style.cssText = `
             background: ${isActive ? '#1a2a3a' : '#111927'};
             border-radius: 6px;
@@ -197,7 +202,8 @@ function renderPoolStats(dataArray) {
         `;
         card.dataset.industry = item.industry;
 
-        card.addEventListener('click', function() {
+        card.addEventListener('click', function(e) {
+            if (e.target.closest('.star-btn')) return;
             const industry = this.dataset.industry;
             if (selectedIndustry === industry) {
                 selectedIndustry = null;
@@ -205,27 +211,66 @@ function renderPoolStats(dataArray) {
                 selectedIndustry = industry;
                 loadIndustryKline(industry);
             }
-            applyFilters(); // 重新应用过滤并刷新
+            applyFilters();
         });
 
-        card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <span style="color:#f0b90b; font-weight:bold; font-size:13px;">${index + 1}. ${item.industry}</span>
-                <span style="color:#6a7a8e; font-size:12px;">${item.count}次</span>
-            </div>
-            <div style="display:flex; gap:8px; font-size:12px; color:#6a7a8e;">
-                <span>📊 ${item.stock_count}只</span>
-                <span>📈 ${item.avg_board.toFixed(2)}板</span>
-            </div>
+        // --- 头部：行业名 + 次数 ---
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'color:#f0b90b; font-weight:bold; font-size:13px;';
+        nameSpan.textContent = `${index + 1}. ${item.industry}`;
+        header.appendChild(nameSpan);
+
+        const countSpan = document.createElement('span');
+        countSpan.style.cssText = 'color:#6a7a8e; font-size:12px;';
+        countSpan.textContent = `${item.count}次`;
+        header.appendChild(countSpan);
+        card.appendChild(header);
+
+        // --- 统计信息行（股票数、平均板数） + 星标（右侧） ---
+        const statsRow = document.createElement('div');
+        statsRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center;';
+        
+        const leftStats = document.createElement('span');
+        leftStats.style.cssText = 'font-size:12px; color:#6a7a8e;';
+        leftStats.textContent = `📊 ${item.stock_count}只  📈 ${item.avg_board.toFixed(2)}板`;
+        statsRow.appendChild(leftStats);
+
+        const starSpan = document.createElement('span');
+        starSpan.className = 'star-btn';
+        starSpan.style.cssText = `
+            cursor: pointer;
+            font-size: 22px;
+            color: ${isStarred ? '#f0b90b' : '#6a7a8e'};
+            transition: color 0.2s;
+            user-select: none;
+            line-height: 1;
         `;
+        starSpan.textContent = isStarred ? '★' : '☆';
+        starSpan.title = isStarred ? '取消星标' : '添加星标';
+        starSpan.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const industry = card.dataset.industry;
+            if (starredIndustries.has(industry)) {
+                starredIndustries.delete(industry);
+            } else {
+                starredIndustries.add(industry);
+            }
+            renderPoolStats(poolStatsData);
+        });
+        statsRow.appendChild(starSpan);
+        card.appendChild(statsRow);
+
         container.appendChild(card);
     });
 
     document.getElementById('poolStatsCount').textContent = `共 ${totalIndustries} 个行业${totalIndustries > 30 ? '（显示前30）' : ''}`;
 
-    // 展开/收起控制
+    // 展开/收起控制（默认展开）
     if (!isStatsExpanded) {
-        container.style.maxHeight = '300px';
+        container.style.maxHeight = '500px';
         container.style.overflow = 'hidden';
         document.getElementById('btnToggleStats').textContent = '展开';
     } else {
@@ -245,14 +290,14 @@ btnToggleStats.addEventListener('click', function() {
         poolStatsBody.style.overflow = 'visible';
         this.textContent = '收起';
     } else {
-        poolStatsBody.style.maxHeight = '300px';
+        poolStatsBody.style.maxHeight = '500px';
         poolStatsBody.style.overflow = 'hidden';
         this.textContent = '展开';
     }
 });
 
 // ============================================================
-// 加载行业K线（仅当行业有数据且不为“未分类”）
+// 加载行业K线
 // ============================================================
 function loadIndustryKline(industry) {
     if (!industry || industry === '未分类') {
@@ -345,7 +390,7 @@ function loadStockKlineWithIndustry(code, name, industry) {
 }
 
 // ============================================================
-// 渲染涨停池表格（含高亮选中行）
+// 渲染涨停池表格
 // ============================================================
 function renderPoolTable() {
     const start = (poolCurrentPage - 1) * poolPageSize;
@@ -394,14 +439,13 @@ function renderPoolTable() {
 }
 
 // ============================================================
-// 过滤数据（日期、搜索、连板数、行业）
+// 过滤数据
 // ============================================================
 function applyFilters() {
     const dateVal = poolDateInput.value;
     const keyword = poolSearchInput.value.trim().toLowerCase();
-    const boardVal = poolBoardSelect.value;  // ★ 新增
+    const boardVal = poolBoardSelect.value;
     
-    // 1. 基于 poolData 进行日期和搜索过滤（用于排行）
     let filteredForStats = poolData.slice();
     if (dateVal) {
         filteredForStats = filteredForStats.filter(item => item.trade_date === dateVal);
@@ -415,22 +459,17 @@ function applyFilters() {
         );
     }
     
-    // 2. 基于 filteredForStats 再应用连板数过滤和行业过滤（用于表格）
     let filteredForTable = filteredForStats.slice();
-    
-    // 连板数过滤
     if (boardVal !== 'all') {
         const targetBoard = parseInt(boardVal);
         filteredForTable = filteredForTable.filter(item => {
             const cnt = item.continue_day_cnt || 0;
             if (targetBoard === 4) {
-                return cnt >= 4;   // 4板及以上
+                return cnt >= 4;
             }
             return cnt === targetBoard;
         });
     }
-    
-    // 行业过滤（如果有选中）
     if (selectedIndustry) {
         filteredForTable = filteredForTable.filter(item => {
             const ind = item.industry ? item.industry.split(',')[0].trim() : '';
@@ -441,7 +480,8 @@ function applyFilters() {
     poolFilteredData = filteredForTable;
     poolCurrentPage = 1;
     renderPoolTable();
-    renderPoolStats(filteredForStats); // ★ 排行基于日期+搜索（不含连板数和行业）
+    poolStatsData = filteredForStats;
+    renderPoolStats(filteredForStats);
 }
 
 // ============================================================
@@ -461,13 +501,15 @@ function fetchPoolData() {
                 poolData = list;
                 poolDateInput.value = '';
                 poolSearchInput.value = '';
-                poolBoardSelect.value = 'all';  // ★ 重置连板筛选
+                poolBoardSelect.value = 'all';
                 selectedIndustry = null;
+                starredIndustries.clear();
                 poolFilteredData = poolData.slice();
                 poolCurrentPage = 1;
                 renderPoolTable();
                 poolArea.classList.remove('hidden');
-                renderPoolStats(poolData);  // ★ 初始传入全部数据
+                poolStatsData = poolData;
+                renderPoolStats(poolData);
             } else {
                 throw new Error(data.error || '加载失败');
             }
@@ -486,7 +528,7 @@ function fetchPoolData() {
 // ============================================================
 poolDateInput.addEventListener('change', applyFilters);
 poolSearchInput.addEventListener('input', applyFilters);
-poolBoardSelect.addEventListener('change', applyFilters);  // ★ 新增
+poolBoardSelect.addEventListener('change', applyFilters);
 btnClearPoolDate.addEventListener('click', function() { poolDateInput.value = ''; applyFilters(); });
 btnClearPoolSearch.addEventListener('click', function() { poolSearchInput.value = ''; applyFilters(); });
 poolPrevPage.addEventListener('click', function() { if (poolCurrentPage > 1) { poolCurrentPage--; renderPoolTable(); } });
